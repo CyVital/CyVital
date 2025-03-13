@@ -19,8 +19,8 @@
 - **Daniel Karpov**
 - **Jay Patel**
 
-## Acknowledgments
-- **imgui-bundle**: [LINK](https://github.com/pthom/imgui_bundle/)
+## External Libraries
+- **imgui-bundle**: [GitHub](https://github.com/pthom/imgui_bundle/)
 
 ## License
 CyVitals is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for more details or visit [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html).
