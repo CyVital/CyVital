@@ -23,7 +23,7 @@ def show_sidebar(app_state: AppState):
                      imgui.ChildFlags_.borders)  
     views = ["ECG", "Blood O2", "EMG"] 
     for view in views:
-        if imgui.button(view, imgui.ImVec2(-1, 50)):
+        if imgui.button(view, imgui.ImVec2(-1, 40)):
             app_state.current_view = view
             current_view = view
     imgui.end_child()
