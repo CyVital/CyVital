@@ -23,7 +23,7 @@ def show_sidebar(app_state: AppState):
                      imgui.ChildFlags_.borders)  
     views = ["ECG", "Blood O2", "EMG"] 
     for view in views:
-        if imgui.button(view, imgui.ImVec2(-1, 100)):
+        if imgui.button(view, imgui.ImVec2(-1, 50)):
             app_state.current_view = view
             current_view = view
     imgui.end_child()
@@ -31,7 +31,7 @@ def show_sidebar(app_state: AppState):
 # CUSTOMARY FUNCTIONS
 log_messages = []
 def add_to_logs(message: str):
-    log_messages.append("[" + datetime.now().strftime("%H:%M:%S: ") + "] " + message)
+    log_messages.append("[" + datetime.now().strftime("%H:%M:%S") + "]: " + message)
 
     # REMOVE OLD LOGS
     if len(log_messages) > 1000:  
