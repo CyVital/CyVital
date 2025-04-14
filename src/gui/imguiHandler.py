@@ -1,7 +1,13 @@
-from imgui_bundle import hello_imgui, imgui
+from imgui_bundle import hello_imgui, imgui, immapp, imgui_md
 from typing import List
-
 from datetime import datetime
+
+# ECG REQUIREMENTS
+from sensors.Ecg import EcgMonitor
+import numpy as np
+import time
+from collections import deque
+from typing import Optional
 
 # DEFINE APPSTATES
 class AppState:
@@ -13,6 +19,8 @@ class AppState:
         self.current_view = "Home"
         self.counter = 0
         self.input_text = "Type here"
+        self.ecg_monitor: Optional[EcgMonitor] = None
+        self.waveform_history = deque(maxlen=200)  # Stores 200 points for smoother display
 
 # REQUIRED IMPORTS
 from imgui_bundle import imgui  
@@ -54,6 +62,9 @@ def show_ecg_view(app_state: AppState):
     _, app_state.counter = imgui.slider_int("Counter", app_state.counter, 0, 100)
     if imgui.button("Reset Counter"):
         app_state.counter = 0
+    imgui.text(f"Counter value: {app_state.counter}")
+    imgui.text(f"Input text: {app_state.input_text}")
+    add_to_logs(app_state.input_text)
 
 def show_bloodoxygen_view(app_state: AppState):
     imgui.text_wrapped("Application Settings")
@@ -63,9 +74,6 @@ def show_bloodoxygen_view(app_state: AppState):
 def show_emg_view(app_state: AppState):
     imgui.text_wrapped("Info View")
     imgui.separator()
-    imgui.text(f"Counter value: {app_state.counter}")
-    imgui.text(f"Input text: {app_state.input_text}")
-    add_to_logs(app_state.input_text)
 
 # SWAP TO NEW VIEW USING APPSTATE
 def show_main_content(app_state: AppState):
@@ -121,16 +129,25 @@ def main():
     runner_params.app_window_params.window_title = "ISU CyVitals Beta"
     runner_params.app_window_params.window_geometry.size = (800, 600)
     
-    # Configure docking layout
+    # DOCKING LAYOUT
     runner_params.docking_params = create_docking_layout(app_state)
     runner_params.imgui_window_params.default_imgui_window_type = (
         hello_imgui.DefaultImGuiWindowType.provide_full_screen_dock_space
     )
     
-    # Basic menu bar
+    # BASIC MENU BAR
     runner_params.imgui_window_params.show_menu_view_themes = False
     runner_params.imgui_window_params.show_menu_bar = True
-    runner_params.imgui_window_params.show_menu_app = False
+    runner_params.imgui_window_params.show_menu_app = True
+
+    # MANAGE ECGMONITOR
+    try:
+        app_state.ecg_monitor = EcgMonitor()
+        app_state.ecg_monitor.start()
+    except Exception as e:
+        #print(f"Failed to initialize ECG monitor: {e}")
+        add_to_logs("Failed to initialize ECG monitor: " + str(e))
+        app_state.ecg_monitor = None
     
     hello_imgui.run(runner_params)
 
