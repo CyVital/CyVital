@@ -1,3 +1,4 @@
+# REQUIRED IMPORTS
 from imgui_bundle import hello_imgui, imgui, immapp, imgui_md
 from typing import List
 from datetime import datetime
@@ -21,9 +22,6 @@ class AppState:
         self.input_text = "Type here"
         self.ecg_monitor: Optional[EcgMonitor] = None
         self.waveform_history = deque(maxlen=200)  # Stores 200 points for smoother display
-
-# REQUIRED IMPORTS
-from imgui_bundle import imgui  
 
 def show_sidebar(app_state: AppState):
     imgui.begin_child("Sidebar", 
@@ -57,14 +55,62 @@ def custom_log_gui():
     
 # AVAILABLE VIEWS FOR SENSORS
 def show_ecg_view(app_state: AppState):
-    imgui.text_wrapped("Welcome to the Home View!")
-    imgui.separator()
-    _, app_state.counter = imgui.slider_int("Counter", app_state.counter, 0, 100)
-    if imgui.button("Reset Counter"):
-        app_state.counter = 0
-    imgui.text(f"Counter value: {app_state.counter}")
-    imgui.text(f"Input text: {app_state.input_text}")
-    add_to_logs(app_state.input_text)
+    if app_state.ecg_monitor is None:
+        imgui.text("ECG device not available")
+        return
+
+    ecg_data = app_state.ecg_monitor.get_data()
+    
+    # Display heart rate
+    if ecg_data.heart_rate is not None:
+        imgui.text(f"Heart Rate: {ecg_data.heart_rate} BPM")
+    else:
+        imgui.text("Calculating heart rate...")
+
+    # Plot waveform
+    if imgui.begin_child("ECG Waveform", imgui.ImVec2(-1, -1), imgui.ChildFlags_.borders):
+        draw_list = imgui.get_window_draw_list()
+        canvas_pos = imgui.get_cursor_screen_pos()
+        canvas_size = imgui.get_content_region_avail()
+        
+        # Normalize ECG data to canvas height
+        samples = np.array(ecg_data.raw_samples)
+        if len(samples) > 0:
+            min_val, max_val = np.min(samples), np.max(samples)
+            if max_val - min_val == 0:
+                normalized = np.zeros_like(samples)
+            else:
+                normalized = (samples - min_val) / (max_val - min_val)
+            
+            # Convert to screen coordinates
+            x_scale = canvas_size.x / len(normalized)
+            y_scale = canvas_size.y
+            
+            points = []
+            for i, y in enumerate(normalized):
+                x = canvas_pos.x + i * x_scale
+                y_pos = canvas_pos.y + (1 - y) * y_scale
+                points.append(imgui.ImVec2(x, y_pos))
+            
+            # Draw waveform
+            if len(points) > 1:
+                draw_list.add_polyline(
+                    points, 
+                    imgui.get_color_u32(imgui.Col_.plot_lines), 
+                    flags=imgui.DrawFlags_.none, 
+                    thickness=1.0
+                )
+            
+            # Draw peaks
+            peak_color = imgui.get_color_u32(imgui.Col_.nav_highlight)
+            for peak in app_state.ecg_monitor.peaks:
+                if peak < len(points):
+                    draw_list.add_circle_filled(
+                        points[peak].x, points[peak].y, 
+                        3.0, peak_color
+                    )
+        
+        imgui.end_child()
 
 def show_bloodoxygen_view(app_state: AppState):
     imgui.text_wrapped("Application Settings")
