@@ -1,5 +1,6 @@
 import sys
-import subprocess
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 def install_dependencies():
     # First check for essential setup tools

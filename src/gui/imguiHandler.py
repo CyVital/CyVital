@@ -1,70 +1,149 @@
-from imgui_bundle import hello_imgui, imgui, immapp, imgui_md
+import sys
+import os
+import time
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
+from imgui_bundle import hello_imgui, imgui, implot
+from sensors.HeartRate import HeartRateMonitor
 from typing import List
 from datetime import datetime
 
-# ECG REQUIREMENTS
-from sensors.Ecg import EcgMonitor
-import numpy as np
-import time
-from collections import deque
-from typing import Optional
-
-# DEFINE APPSTATES
 class AppState:
-    current_view: str
-    counter: int
-    input_text: str
-
     def __init__(self):
         self.current_view = "Home"
         self.counter = 0
         self.input_text = "Type here"
-        self.ecg_monitor: Optional[EcgMonitor] = None
-        self.waveform_history = deque(maxlen=200)  # Stores 200 points for smoother display
-
-# REQUIRED IMPORTS
-from imgui_bundle import imgui  
+        self.heart_monitor = HeartRateMonitor()
+        self.device_error = ""
+        self.discovered_devices = []
+        self.selected_device_index = -1
+        self.last_discovery_time = 0
 
 def show_sidebar(app_state: AppState):
-    imgui.begin_child("Sidebar", 
-                     imgui.ImVec2(-1, -1),  
-                     imgui.ChildFlags_.borders)  
-    views = ["ECG", "Blood O2", "EMG"] 
+    imgui.begin_child("Sidebar", imgui.ImVec2(-1, -1), imgui.ChildFlags_.borders)
+    views = ["ECG", "Blood O2", "EMG"]
     for view in views:
-        if imgui.button(view, imgui.ImVec2(-1, 40)):
+        if imgui.button(view, imgui.ImVec2(-1, 90)):
             app_state.current_view = view
-            current_view = view
     imgui.end_child()
 
-# CUSTOMARY FUNCTIONS
 log_messages = []
 def add_to_logs(message: str):
-    log_messages.append("[" + datetime.now().strftime("%H:%M:%S") + "]: " + message)
-
-    # REMOVE OLD LOGS
-    if len(log_messages) > 1000:  
-        log_messages.pop(0) 
+    log_messages.append(f"[{datetime.now().strftime('%H:%M:%S')}]: {message}")
+    if len(log_messages) > 1000:
+        log_messages.pop(0)
 
 def custom_log_gui():
     imgui.begin_child("Logs", imgui.ImVec2(0, 0), imgui.ChildFlags_.borders)
-    
-    imgui.push_style_color(imgui.Col_.text, imgui.get_color_u32((1.0, 1.0, 1.0, 1.0)))  # Set neutral white color
+    imgui.push_style_color(imgui.Col_.text, imgui.get_color_u32((1.0, 1.0, 1.0, 1.0)))
     for msg in log_messages:
         imgui.text_unformatted(msg)
     imgui.pop_style_color()
-
     imgui.end_child()
+
+def show_device_selection(app_state: AppState):
+    add_to_logs("Scanning for devices...")
     
-# AVAILABLE VIEWS FOR SENSORS
-def show_ecg_view(app_state: AppState):
-    imgui.text_wrapped("Welcome to the Home View!")
+    # Auto-refresh every 2 seconds
+    if time.time() - app_state.last_discovery_time > 2:
+        try:
+            app_state.discovered_devices = HeartRateMonitor.discover_devices()
+            add_to_logs(f"Found {len(app_state.discovered_devices)} devices")
+        except Exception as e:
+            add_to_logs(f"Discovery error: {str(e)}")
+        app_state.last_discovery_time = time.time()
+    
+    imgui.text_colored(imgui.ImVec4(0.5, 0.8, 1.0, 1.0), "Available Devices:")
     imgui.separator()
-    _, app_state.counter = imgui.slider_int("Counter", app_state.counter, 0, 100)
-    if imgui.button("Reset Counter"):
-        app_state.counter = 0
-    imgui.text(f"Counter value: {app_state.counter}")
-    imgui.text(f"Input text: {app_state.input_text}")
-    add_to_logs(app_state.input_text)
+    
+    if imgui.button("Refresh Devices"):
+        app_state.discovered_devices = HeartRateMonitor.discover_devices()
+        add_to_logs("Device list refreshed")
+    
+    # Style var stack fix
+    imgui.push_style_var(imgui.StyleVar_.item_spacing, imgui.ImVec2(0, 5))
+    try:
+        for idx, device in enumerate(app_state.discovered_devices):
+            label = f"{device.get('name', 'Unknown')} ({device.get('serial', 'N/A')})"
+            if imgui.selectable(label, app_state.selected_device_index == idx)[0]:
+                app_state.selected_device_index = idx
+    finally:
+        imgui.pop_style_var()  # Ensured pop
+    
+    if app_state.selected_device_index >= 0:
+        imgui.spacing()
+        if imgui.button("Connect to Selected Device", imgui.ImVec2(-1, 40)):
+            try:
+                selected = app_state.discovered_devices[app_state.selected_device_index]
+                app_state.heart_monitor.stop()
+                app_state.heart_monitor.start(selected.get('serial'))
+                app_state.device_error = ""
+                add_to_logs(f"Connected to {selected.get('name', 'device')}")
+            except Exception as e:
+                app_state.device_error = str(e)
+                add_to_logs(f"Connection failed: {str(e)}")
+
+def show_ecg_view(app_state: AppState):
+    if not app_state.heart_monitor.running:
+        show_device_selection(app_state)
+        return
+    
+    # Device status display
+    imgui.text_colored(imgui.ImVec4(0.4, 0.8, 1.0, 1.0), "Connected Device:")
+    imgui.same_line()
+    
+    if app_state.device_error:
+        imgui.text_colored(imgui.ImVec4(1.0, 0.0, 0.0, 1.0), f"● {app_state.device_error}")
+        return
+    
+    try:
+        monitor = app_state.heart_monitor
+        status_color = imgui.ImVec4(0.0, 1.0, 0.0, 1.0) if monitor.running else imgui.ImVec4(1.0, 0.0, 0.0, 1.0)
+        status_text = "● Monitoring" if monitor.running else "● Disconnected"
+        
+        imgui.text_colored(status_color, status_text)
+        imgui.same_line()
+        
+        if monitor.device_info:
+            info = f"{monitor.device_info.get('name', 'Device')} | SN: {monitor.device_info.get('serial', 'N/A')}"
+            imgui.text(info)
+
+        # Plotting section
+        imgui.spacing()
+        imgui.text_wrapped("Real-time ECG Monitoring")
+        imgui.separator()
+        
+        if implot.begin_plot("ECG Signal", size=(-1, 300)):
+            try:
+                if monitor.raw_samples:
+                    times = [t - monitor.start_time for t in monitor.time_values[-500:]]
+                    implot.plot_line("ECG", times, monitor.raw_samples[-500:])
+            finally:
+                implot.end_plot()
+        
+        # BPM display
+        imgui.spacing()
+        if monitor.current_bpm > 30:
+            imgui.text(f"Heart Rate: {monitor.current_bpm:.1f} BPM")
+        else:
+            imgui.text("Heart Rate: --")
+
+        # Reset controls
+        if imgui.button("Reset Monitoring", imgui.ImVec2(120, 40)):
+            try:
+                monitor.stop()
+                app_state.heart_monitor = HeartRateMonitor()
+                if monitor.device_info:
+                    app_state.heart_monitor.start(monitor.device_info.get('serial'))
+                add_to_logs("Monitoring reset")
+            except Exception as e:
+                app_state.device_error = f"Reset Failed: {str(e)}"
+        imgui.same_line()
+        imgui.text("Press to reset monitoring session")
+
+    except Exception as e:
+        app_state.device_error = str(e)
+        add_to_logs(f"Device Error: {app_state.device_error}")
+        app_state.heart_monitor.stop()
 
 def show_bloodoxygen_view(app_state: AppState):
     imgui.text_wrapped("Application Settings")
@@ -74,20 +153,34 @@ def show_bloodoxygen_view(app_state: AppState):
 def show_emg_view(app_state: AppState):
     imgui.text_wrapped("Info View")
     imgui.separator()
+    imgui.text(f"Counter value: {app_state.counter}")
+    imgui.text(f"Input text: {app_state.input_text}")
+    add_to_logs(app_state.input_text)
 
-# SWAP TO NEW VIEW USING APPSTATE
 def show_main_content(app_state: AppState):
-    if app_state.current_view == "ECG":
-        show_ecg_view(app_state)
-    elif app_state.current_view == "Blood O2":
-        show_bloodoxygen_view(app_state)
-    elif app_state.current_view == "EMG":
-        show_emg_view(app_state)
+    try:
+        current_view = app_state.current_view
+        
+        if current_view != "ECG" and app_state.heart_monitor.running:
+            app_state.heart_monitor.stop()
+            add_to_logs("Monitoring stopped")
+        
+        if current_view == "ECG":
+            app_state.heart_monitor.update()
+            show_ecg_view(app_state)
+        elif current_view == "Blood O2":
+            show_bloodoxygen_view(app_state)
+        elif current_view == "EMG":
+            show_emg_view(app_state)
+            
+    except Exception as e:
+        app_state.device_error = str(e)
+        add_to_logs(f"System Error: {app_state.device_error}")
+        app_state.heart_monitor.stop()
 
 def create_docking_layout(app_state: AppState) -> hello_imgui.DockingParams:
     docking_params = hello_imgui.DockingParams()
     
-    # CREATE SPACING OF MENU
     split_left = hello_imgui.DockingSplit()
     split_left.initial_dock = "MainDockSpace"
     split_left.new_dock = "SidebarSpace"
@@ -102,7 +195,6 @@ def create_docking_layout(app_state: AppState) -> hello_imgui.DockingParams:
 
     docking_params.docking_splits = [split_left, split_bottom]
 
-    # DOCKABLE
     sidebar_window = hello_imgui.DockableWindow()
     sidebar_window.label = "Sensors"
     sidebar_window.dock_space_name = "SidebarSpace"
@@ -123,33 +215,26 @@ def create_docking_layout(app_state: AppState) -> hello_imgui.DockingParams:
     return docking_params
 
 def main():
+    implot.create_context()
     app_state = AppState()
     
     runner_params = hello_imgui.RunnerParams()
     runner_params.app_window_params.window_title = "ISU CyVitals Beta"
-    runner_params.app_window_params.window_geometry.size = (800, 600)
+    runner_params.app_window_params.window_geometry.size = (1280, 720)
     
-    # DOCKING LAYOUT
     runner_params.docking_params = create_docking_layout(app_state)
     runner_params.imgui_window_params.default_imgui_window_type = (
         hello_imgui.DefaultImGuiWindowType.provide_full_screen_dock_space
     )
     
-    # BASIC MENU BAR
-    runner_params.imgui_window_params.show_menu_view_themes = False
     runner_params.imgui_window_params.show_menu_bar = True
-    runner_params.imgui_window_params.show_menu_app = True
-
-    # MANAGE ECGMONITOR
-    try:
-        app_state.ecg_monitor = EcgMonitor()
-        app_state.ecg_monitor.start()
-    except Exception as e:
-        #print(f"Failed to initialize ECG monitor: {e}")
-        add_to_logs("Failed to initialize ECG monitor: " + str(e))
-        app_state.ecg_monitor = None
+    runner_params.imgui_window_params.show_menu_view_themes = False
+    runner_params.imgui_window_params.show_menu_app = False
     
     hello_imgui.run(runner_params)
+    
+    implot.destroy_context()
+    app_state.heart_monitor.stop()
 
 if __name__ == "__main__":
     main()
