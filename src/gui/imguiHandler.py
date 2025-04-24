@@ -1,80 +1,101 @@
-from imgui_bundle import hello_imgui, imgui
-from typing import List
-
+import sys
+import os
+import subprocess
+import threading
 from datetime import datetime
+from imgui_bundle import hello_imgui, implot, imgui
+import time
 
-# DEFINE APPSTATES
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+log_lock = threading.Lock()
+log_messages = []
+
 class AppState:
-    current_view: str
-    counter: int
-    input_text: str
-
     def __init__(self):
         self.current_view = "Home"
-        self.counter = 0
-        self.input_text = "Type here"
+        self.heart_process = None
+        self.output_thread = None
 
-# REQUIRED IMPORTS
-from imgui_bundle import imgui  
-
-def show_sidebar(app_state: AppState):
-    imgui.begin_child("Sidebar", 
-                     imgui.ImVec2(-1, -1),  
-                     imgui.ChildFlags_.borders)  
-    views = ["ECG", "Blood O2", "EMG"] 
-    for view in views:
-        if imgui.button(view, imgui.ImVec2(-1, 40)):
-            app_state.current_view = view
-            current_view = view
-    imgui.end_child()
-
-# CUSTOMARY FUNCTIONS
-log_messages = []
 def add_to_logs(message: str):
-    log_messages.append("[" + datetime.now().strftime("%H:%M:%S") + "]: " + message)
-
-    # REMOVE OLD LOGS
-    if len(log_messages) > 1000:  
-        log_messages.pop(0) 
+    with log_lock:
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        log_messages.append(f"[{timestamp}]: {message}")
+        if len(log_messages) > 1000:
+            log_messages.pop(0)
 
 def custom_log_gui():
     imgui.begin_child("Logs", imgui.ImVec2(0, 0), imgui.ChildFlags_.borders)
-    
-    imgui.push_style_color(imgui.Col_.text, imgui.get_color_u32((1.0, 1.0, 1.0, 1.0)))  # Set neutral white color
-    for msg in log_messages:
-        imgui.text_unformatted(msg)
+    imgui.push_style_color(imgui.Col_.text, imgui.get_color_u32((1.0, 1.0, 1.0, 1.0)))
+    with log_lock:
+        for msg in log_messages:
+            imgui.text_unformatted(msg)
     imgui.pop_style_color()
-
     imgui.end_child()
-    
-# AVAILABLE VIEWS FOR SENSORS
+
+def read_output(process):
+    while True:
+        line = process.stdout.readline()
+        if not line:
+            break
+        add_to_logs(line.strip())
+
+def show_sidebar(app_state: AppState):
+    imgui.begin_child("Sidebar", imgui.ImVec2(-1, -1), imgui.ChildFlags_.borders)
+    views = ["ECG", "Blood O2", "EMG"]
+    for view in views:
+        if imgui.button(view, imgui.ImVec2(-1, 90)):
+            app_state.current_view = view
+    imgui.end_child()
+
 def show_ecg_view(app_state: AppState):
-    imgui.text_wrapped("Welcome to the Home View!")
+    imgui.text_colored((0.4, 0.8, 1.0, 1.0), "Heart Rate Monitoring")
     imgui.separator()
-    _, app_state.counter = imgui.slider_int("Counter", app_state.counter, 0, 100)
-    if imgui.button("Reset Counter"):
-        app_state.counter = 0
+    
+    process_running = app_state.heart_process and app_state.heart_process.poll() is None
+    
+    if process_running:
+        if imgui.button("Stop Monitoring", (-1, 90)):
+            app_state.heart_process.terminate()
+            app_state.heart_process.wait()
+            if app_state.output_thread:
+                app_state.output_thread.join()
+            app_state.heart_process = None
+            add_to_logs("Monitoring stopped")
+        imgui.same_line()
+        imgui.text_colored((0, 1, 0, 1), "Status: Running")
+    else:
+        if imgui.button("Start Monitoring", (-1, 90)):
+            try:
+                app_state.heart_process = subprocess.Popen(
+                    ["python", "src/sensors/HeartRate.py"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                app_state.output_thread = threading.Thread(
+                    target=read_output,
+                    args=(app_state.heart_process,),
+                    daemon=True
+                )
+                app_state.output_thread.start()
+                add_to_logs("Monitoring started")
+            except Exception as e:
+                add_to_logs(f"Error starting process: {str(e)}")
+        imgui.same_line()
+        imgui.text_colored((1, 0, 0, 1), "Status: Stopped")
 
-def show_bloodoxygen_view(app_state: AppState):
-    imgui.text_wrapped("Application Settings")
-    imgui.separator()
-    _, app_state.input_text = imgui.input_text("Text Input", app_state.input_text, 256)
-
-def show_emg_view(app_state: AppState):
-    imgui.text_wrapped("Info View")
-    imgui.separator()
-    imgui.text(f"Counter value: {app_state.counter}")
-    imgui.text(f"Input text: {app_state.input_text}")
-    add_to_logs(app_state.input_text)
-
-# SWAP TO NEW VIEW USING APPSTATE
 def show_main_content(app_state: AppState):
-    if app_state.current_view == "ECG":
-        show_ecg_view(app_state)
-    elif app_state.current_view == "Blood O2":
-        show_bloodoxygen_view(app_state)
-    elif app_state.current_view == "EMG":
-        show_emg_view(app_state)
+    try:
+        if app_state.current_view == "ECG":
+            show_ecg_view(app_state)
+        elif app_state.current_view == "Blood O2":
+            imgui.text_wrapped("Blood Oxygen Monitoring (Not implemented)")
+        elif app_state.current_view == "EMG":
+            imgui.text_wrapped("EMG Monitoring (Not implemented)")
+    except Exception as e:
+        add_to_logs(f"Error in {app_state.current_view} view: {str(e)}")
 
 def create_docking_layout(app_state: AppState) -> hello_imgui.DockingParams:
     docking_params = hello_imgui.DockingParams()
