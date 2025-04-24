@@ -1,7 +1,8 @@
 import sys
-import subprocess
 import os
-import platform
+import subprocess
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 def install_dependencies():
     # First check for essential setup tools
@@ -16,10 +17,9 @@ def install_dependencies():
         ('scipy', 'scipy'),
         ('numpy', 'numpy'),
         ('imgui-bundle', 'imgui_bundle'),
-        ('glfw', 'glfw')
+        ('matplotlib', 'matplotlib')
     ]
 
-    # Check/install essential dependencies first
     print("[!] Checking system essentials...")
     missing_essentials = []
     for package, import_name in essential_deps:
@@ -32,36 +32,12 @@ def install_dependencies():
     if missing_essentials:
         print(f"[!] Installing system essentials: {', '.join(missing_essentials)}")
         try:
-            subprocess.check_call([
-                sys.executable, 
-                "-m", "ensurepip", "--upgrade"
-            ])
-            subprocess.check_call([
-                sys.executable, 
-                "-m", "pip", "install", "--user", *missing_essentials
-            ])
+            subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", *missing_essentials])
         except subprocess.CalledProcessError:
-            print("[!] Failed to install essential dependencies. Please try:")
+            print("[!] Failed to install essential dependencies. Please try manually:")
             print(f"  {sys.executable} -m ensurepip --upgrade")
             return False
-
-    # Check for WaveForms SDK
-    print("\n[!] Checking for WaveForms SDK...")
-    dwf_path = "/Library/Frameworks/dwf.framework/dwf"
-    if not os.path.exists(dwf_path):
-        print("""[!] WaveForms SDK not found!
-    Please download and install from:
-    https://digilent.com/reference/software/waveforms/waveforms3
-    The free version is sufficient.
-    """)
-        return False
-
-    # Now check main dependencies
-    try:
-        from pkg_resources import DistributionNotFound
-    except ImportError:
-        print("[!] Failed to load package resources after installation")
-        return False
 
     missing_deps = []
     print("\n[!] Checking application dependencies...")
@@ -69,7 +45,7 @@ def install_dependencies():
         try:
             __import__(import_name)
             print(f"[!] ✓ {package} already installed")
-        except (ImportError, DistributionNotFound):
+        except ImportError:
             missing_deps.append(package)
     
     if not missing_deps:
@@ -79,25 +55,17 @@ def install_dependencies():
     print("[!] Attempting installation...")
     
     try:
-        # Special handling for macOS binary installations
-        env = os.environ.copy()
-        if platform.system() == "Darwin":
-            env["SYSTEM_VERSION_COMPAT"] = "0"
-            
         subprocess.check_call([
-            sys.executable, 
+            sys.executable,
             "-m", "pip", "install",
             "--user",
-            "--only-binary=:all:",
             *missing_deps
-        ], env=env)
-        
+        ])
         print("[!] Installation successful!")
         return True
     except subprocess.CalledProcessError:
         print("\n[!] Failed to install dependencies. Please try manually:")
-        mac_note = "SYSTEM_VERSION_COMPAT=0 " if platform.system() == "Darwin" else ""
-        print(f"  {mac_note}{sys.executable} -m pip install --user --only-binary=:all: {' '.join(missing_deps)}")
+        print(f"  {sys.executable} -m pip install --user {' '.join(missing_deps)}")
         return False
 
 if __name__ == "__main__":
@@ -112,8 +80,13 @@ if __name__ == "__main__":
     
     print("\n[!] Launching GUI...")
     try:
+        # Correct import path based on typical structure
         from gui.imguiHandler import main as gui_main
         gui_main()
     except ImportError as e:
-        print(f"[!] Import error: {e}")
+        print(f"[!] Critical import error: {e}")
+        print("Possible solutions:")
+        print("1. Check if gui/imguiHandler.py exists")
+        print("2. Verify the directory structure")
+        print("3. Check file permissions")
         sys.exit(1)

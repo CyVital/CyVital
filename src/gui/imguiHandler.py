@@ -1,134 +1,101 @@
-# REQUIRED IMPORTS
-from imgui_bundle import hello_imgui, imgui, immapp, imgui_md
-from typing import List
+import sys
+import os
+import subprocess
+import threading
 from datetime import datetime
-
-# ECG REQUIREMENTS
-from sensors.Ecg import EcgMonitor
-import numpy as np
+from imgui_bundle import hello_imgui, implot, imgui
 import time
-from collections import deque
-from typing import Optional
 
-# DEFINE APPSTATES
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+log_lock = threading.Lock()
+log_messages = []
+
 class AppState:
-    current_view: str
-    counter: int
-    input_text: str
-
     def __init__(self):
         self.current_view = "Home"
-        self.counter = 0
-        self.input_text = "Type here"
-        self.ecg_monitor: Optional[EcgMonitor] = None
-        self.waveform_history = deque(maxlen=200)  # Stores 200 points for smoother display
+        self.heart_process = None
+        self.output_thread = None
 
-def show_sidebar(app_state: AppState):
-    imgui.begin_child("Sidebar", 
-                     imgui.ImVec2(-1, -1),  
-                     imgui.ChildFlags_.borders)  
-    views = ["ECG", "Blood O2", "EMG"] 
-    for view in views:
-        if imgui.button(view, imgui.ImVec2(-1, 40)):
-            app_state.current_view = view
-            current_view = view
-    imgui.end_child()
-
-# CUSTOMARY FUNCTIONS
-log_messages = []
 def add_to_logs(message: str):
-    log_messages.append("[" + datetime.now().strftime("%H:%M:%S") + "]: " + message)
-
-    # REMOVE OLD LOGS
-    if len(log_messages) > 1000:  
-        log_messages.pop(0) 
+    with log_lock:
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        log_messages.append(f"[{timestamp}]: {message}")
+        if len(log_messages) > 1000:
+            log_messages.pop(0)
 
 def custom_log_gui():
     imgui.begin_child("Logs", imgui.ImVec2(0, 0), imgui.ChildFlags_.borders)
-    
-    imgui.push_style_color(imgui.Col_.text, imgui.get_color_u32((1.0, 1.0, 1.0, 1.0)))  # Set neutral white color
-    for msg in log_messages:
-        imgui.text_unformatted(msg)
+    imgui.push_style_color(imgui.Col_.text, imgui.get_color_u32((1.0, 1.0, 1.0, 1.0)))
+    with log_lock:
+        for msg in log_messages:
+            imgui.text_unformatted(msg)
     imgui.pop_style_color()
-
     imgui.end_child()
-    
-# AVAILABLE VIEWS FOR SENSORS
+
+def read_output(process):
+    while True:
+        line = process.stdout.readline()
+        if not line:
+            break
+        add_to_logs(line.strip())
+
+def show_sidebar(app_state: AppState):
+    imgui.begin_child("Sidebar", imgui.ImVec2(-1, -1), imgui.ChildFlags_.borders)
+    views = ["ECG", "Blood O2", "EMG"]
+    for view in views:
+        if imgui.button(view, imgui.ImVec2(-1, 90)):
+            app_state.current_view = view
+    imgui.end_child()
+
 def show_ecg_view(app_state: AppState):
-    if app_state.ecg_monitor is None:
-        imgui.text("ECG device not available")
-        return
-
-    ecg_data = app_state.ecg_monitor.get_data()
+    imgui.text_colored((0.4, 0.8, 1.0, 1.0), "Heart Rate Monitoring")
+    imgui.separator()
     
-    # Display heart rate
-    if ecg_data.heart_rate is not None:
-        imgui.text(f"Heart Rate: {ecg_data.heart_rate} BPM")
+    process_running = app_state.heart_process and app_state.heart_process.poll() is None
+    
+    if process_running:
+        if imgui.button("Stop Monitoring", (-1, 90)):
+            app_state.heart_process.terminate()
+            app_state.heart_process.wait()
+            if app_state.output_thread:
+                app_state.output_thread.join()
+            app_state.heart_process = None
+            add_to_logs("Monitoring stopped")
+        imgui.same_line()
+        imgui.text_colored((0, 1, 0, 1), "Status: Running")
     else:
-        imgui.text("Calculating heart rate...")
-
-    # Plot waveform
-    if imgui.begin_child("ECG Waveform", imgui.ImVec2(-1, -1), imgui.ChildFlags_.borders):
-        draw_list = imgui.get_window_draw_list()
-        canvas_pos = imgui.get_cursor_screen_pos()
-        canvas_size = imgui.get_content_region_avail()
-        
-        # Normalize ECG data to canvas height
-        samples = np.array(ecg_data.raw_samples)
-        if len(samples) > 0:
-            min_val, max_val = np.min(samples), np.max(samples)
-            if max_val - min_val == 0:
-                normalized = np.zeros_like(samples)
-            else:
-                normalized = (samples - min_val) / (max_val - min_val)
-            
-            # Convert to screen coordinates
-            x_scale = canvas_size.x / len(normalized)
-            y_scale = canvas_size.y
-            
-            points = []
-            for i, y in enumerate(normalized):
-                x = canvas_pos.x + i * x_scale
-                y_pos = canvas_pos.y + (1 - y) * y_scale
-                points.append(imgui.ImVec2(x, y_pos))
-            
-            # Draw waveform
-            if len(points) > 1:
-                draw_list.add_polyline(
-                    points, 
-                    imgui.get_color_u32(imgui.Col_.plot_lines), 
-                    flags=imgui.DrawFlags_.none, 
-                    thickness=1.0
+        if imgui.button("Start Monitoring", (-1, 90)):
+            try:
+                app_state.heart_process = subprocess.Popen(
+                    ["python", "src/sensors/HeartRate.py"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
                 )
-            
-            # Draw peaks
-            peak_color = imgui.get_color_u32(imgui.Col_.nav_highlight)
-            for peak in app_state.ecg_monitor.peaks:
-                if peak < len(points):
-                    draw_list.add_circle_filled(
-                        points[peak].x, points[peak].y, 
-                        3.0, peak_color
-                    )
-        
-        imgui.end_child()
+                app_state.output_thread = threading.Thread(
+                    target=read_output,
+                    args=(app_state.heart_process,),
+                    daemon=True
+                )
+                app_state.output_thread.start()
+                add_to_logs("Monitoring started")
+            except Exception as e:
+                add_to_logs(f"Error starting process: {str(e)}")
+        imgui.same_line()
+        imgui.text_colored((1, 0, 0, 1), "Status: Stopped")
 
-def show_bloodoxygen_view(app_state: AppState):
-    imgui.text_wrapped("Application Settings")
-    imgui.separator()
-    _, app_state.input_text = imgui.input_text("Text Input", app_state.input_text, 256)
-
-def show_emg_view(app_state: AppState):
-    imgui.text_wrapped("Info View")
-    imgui.separator()
-
-# SWAP TO NEW VIEW USING APPSTATE
 def show_main_content(app_state: AppState):
-    if app_state.current_view == "ECG":
-        show_ecg_view(app_state)
-    elif app_state.current_view == "Blood O2":
-        show_bloodoxygen_view(app_state)
-    elif app_state.current_view == "EMG":
-        show_emg_view(app_state)
+    try:
+        if app_state.current_view == "ECG":
+            show_ecg_view(app_state)
+        elif app_state.current_view == "Blood O2":
+            imgui.text_wrapped("Blood Oxygen Monitoring (Not implemented)")
+        elif app_state.current_view == "EMG":
+            imgui.text_wrapped("EMG Monitoring (Not implemented)")
+    except Exception as e:
+        add_to_logs(f"Error in {app_state.current_view} view: {str(e)}")
 
 def create_docking_layout(app_state: AppState) -> hello_imgui.DockingParams:
     docking_params = hello_imgui.DockingParams()
@@ -175,25 +142,16 @@ def main():
     runner_params.app_window_params.window_title = "ISU CyVitals Beta"
     runner_params.app_window_params.window_geometry.size = (800, 600)
     
-    # DOCKING LAYOUT
+    # Configure docking layout
     runner_params.docking_params = create_docking_layout(app_state)
     runner_params.imgui_window_params.default_imgui_window_type = (
         hello_imgui.DefaultImGuiWindowType.provide_full_screen_dock_space
     )
     
-    # BASIC MENU BAR
+    # Basic menu bar
     runner_params.imgui_window_params.show_menu_view_themes = False
     runner_params.imgui_window_params.show_menu_bar = True
-    runner_params.imgui_window_params.show_menu_app = True
-
-    # MANAGE ECGMONITOR
-    try:
-        app_state.ecg_monitor = EcgMonitor()
-        app_state.ecg_monitor.start()
-    except Exception as e:
-        #print(f"Failed to initialize ECG monitor: {e}")
-        add_to_logs("Failed to initialize ECG monitor: " + str(e))
-        app_state.ecg_monitor = None
+    runner_params.imgui_window_params.show_menu_app = False
     
     hello_imgui.run(runner_params)
 
