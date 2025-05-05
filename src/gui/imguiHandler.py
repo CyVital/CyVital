@@ -15,6 +15,7 @@ class AppState:
         self.current_view = "Home"
         self.heart_process = None
         self.output_thread = None
+        self.selectedMUX = None # 0, 1, 2, 3
 
 def add_to_logs(message: str):
     with log_lock:
@@ -41,7 +42,7 @@ def read_output(process):
 
 def show_sidebar(app_state: AppState):
     imgui.begin_child("Sidebar", imgui.ImVec2(-1, -1), imgui.ChildFlags_.borders)
-    views = ["ECG", "Blood O2", "EMG"]
+    views = ["ECG", "Pulse OX", "EMG", "Reaction"]
     for view in views:
         if imgui.button(view, imgui.ImVec2(-1, 90)):
             app_state.current_view = view
@@ -86,14 +87,136 @@ def show_ecg_view(app_state: AppState):
         imgui.same_line()
         imgui.text_colored((1, 0, 0, 1), "Status: Stopped")
 
+
+def show_emg_view(app_state: AppState):
+    imgui.text_colored((0.4, 0.8, 1.0, 1.0), "Electromyography") 
+    imgui.separator()
+    
+    process_running = app_state.heart_process and app_state.heart_process.poll() is None
+    
+    if process_running:
+        if imgui.button("Stop Monitoring", (-1, 90)):
+            app_state.heart_process.terminate()
+            app_state.heart_process.wait()
+            if app_state.output_thread:
+                app_state.output_thread.join()
+            app_state.heart_process = None
+            add_to_logs("Monitoring stopped")
+        imgui.same_line()
+        imgui.text_colored((0, 1, 0, 1), "Status: Running")
+    else:
+        if imgui.button("Start Monitoring", (-1, 90)):
+            try:
+                app_state.heart_process = subprocess.Popen(
+                    ["python", "src/sensors/Emg.py"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                app_state.output_thread = threading.Thread(
+                    target=read_output,
+                    args=(app_state.heart_process,),
+                    daemon=True
+                )
+                app_state.output_thread.start()
+                add_to_logs("Monitoring started")
+            except Exception as e:
+                add_to_logs(f"Error starting process: {str(e)}")
+        imgui.same_line()
+        imgui.text_colored((1, 0, 0, 1), "Status: Stopped")
+
+def show_pulseOx_view(app_state: AppState):
+    imgui.text_colored((0.4, 0.8, 1.0, 1.0), "Pulse Oxymeter")
+    imgui.separator()
+    
+    process_running = app_state.heart_process and app_state.heart_process.poll() is None
+    
+    if process_running:
+        if imgui.button("Stop Monitoring", (-1, 90)):
+            app_state.heart_process.terminate()
+            app_state.heart_process.wait()
+            if app_state.output_thread:
+                app_state.output_thread.join()
+            app_state.heart_process = None
+            add_to_logs("Monitoring stopped")
+        imgui.same_line()
+        imgui.text_colored((0, 1, 0, 1), "Status: Running")
+    else:
+        if imgui.button("Start Monitoring", (-1, 90)):
+            try:
+                app_state.heart_process = subprocess.Popen(
+                    ["python", "src/sensors/PulseOx.py"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                app_state.output_thread = threading.Thread(
+                    target=read_output,
+                    args=(app_state.heart_process,),
+                    daemon=True
+                )
+                app_state.output_thread.start()
+                add_to_logs("Monitoring started")
+            except Exception as e:
+                add_to_logs(f"Error starting process: {str(e)}")
+        imgui.same_line()
+        imgui.text_colored((1, 0, 0, 1), "Status: Stopped")
+
+
+def show_reaction_view(app_state: AppState):
+    imgui.text_colored((0.4, 0.8, 1.0, 1.0), "Reaction")
+    imgui.separator()
+    
+    process_running = app_state.heart_process and app_state.heart_process.poll() is None
+    
+    if process_running:
+        if imgui.button("Stop Monitoring", (-1, 90)):
+            app_state.heart_process.terminate()
+            app_state.heart_process.wait()
+            if app_state.output_thread:
+                app_state.output_thread.join()
+            app_state.heart_process = None
+            add_to_logs("Monitoring stopped")
+        imgui.same_line()
+        imgui.text_colored((0, 1, 0, 1), "Status: Running")
+    else:
+        if imgui.button("Start Monitoring", (-1, 90)):
+            try:
+                app_state.heart_process = subprocess.Popen(
+                    ["python", "src/sensors/Reaction.py"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                app_state.output_thread = threading.Thread(
+                    target=read_output,
+                    args=(app_state.heart_process,),
+                    daemon=True
+                )
+                app_state.output_thread.start()
+                add_to_logs("Monitoring started")
+            except Exception as e:
+                add_to_logs(f"Error starting process: {str(e)}")
+        imgui.same_line()
+        imgui.text_colored((1, 0, 0, 1), "Status: Stopped")
+
+
 def show_main_content(app_state: AppState):
     try:
         if app_state.current_view == "ECG":
             show_ecg_view(app_state)
-        elif app_state.current_view == "Blood O2":
-            imgui.text_wrapped("Blood Oxygen Monitoring (Not implemented)")
+        elif app_state.current_view == "Pulse OX":
+            show_pulseOx_view(app_state)
         elif app_state.current_view == "EMG":
-            imgui.text_wrapped("EMG Monitoring (Not implemented)")
+            show_emg_view(app_state)
+        elif app_state.current_view == "Reaction":
+            show_reaction_view(app_state)
     except Exception as e:
         add_to_logs(f"Error in {app_state.current_view} view: {str(e)}")
 

@@ -1,117 +1,170 @@
-# Ecg.py
-import dwfpy as dwf
-import numpy as np
-import scipy.signal as signal
-import threading
+
 import time
-from collections import deque
-from dataclasses import dataclass, field
-from typing import Deque, Optional, List
-import imgui
+import numpy as np
+import dwfpy as dwf
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from scipy.signal import find_peaks
 
-@dataclass
-class EcgData:
-    heart_rate: Optional[int] = None
-    waveform_buffer: Deque[float] = field(default_factory=lambda: deque(maxlen=4096))
-    raw_samples: List[float] = field(default_factory=list)
-    sample_rate: int = 8192
+print(f"DWF Version: {dwf.Application.get_version()}")
 
-class EcgMonitor:
-    def __init__(self):
-        self._running = False
-        self._thread: Optional[threading.Thread] = None
-        self.data = EcgData()
-        self.lock = threading.Lock()
-        self.device = None
-        self.scope = None
-        self.start_time = time.time()
-        self.peaks = []
+fig, (ax1, ax3) = plt.subplots(2, 1, figsize=(10, 8))
+fig.suptitle('Heart Rate Monitor')
+
+# Initialize empty data
+bpm_values = []
+time_values = []
+peak_times = []
+window_duration = 10  
+
+# Store the sample rate as a global variable
+sample_rate = 8192  # This should match the value used in scope.scan_shift()
+
+# Set up the waveform plot
+line1, = ax1.plot([], [], 'r-', label='Heart Signal')
+peaks_plot, = ax1.plot([], [], 'bo', label='Peaks')
+ax1.set_ylabel('Voltage (V)')
+ax1.set_xlabel('Sample Index')
+ax1.set_ylim(-0.15, 0.15)
+ax1.grid(True)
+ax1.legend()
+
+# For the BPM plot
+line3_bpm, = ax3.plot([], [], 'g-', linewidth=2, label='Heart Rate (BPM)')
+ax3.set_ylabel('BPM')
+ax3.set_xlabel('Time (s)')
+ax3.set_ylim(40, 200)  # Typical heart rate range
+ax3.grid(True)
+ax3.legend()
+
+# Add minor grid lines for more precise readings
+ax1.grid(which='minor', linestyle=':', alpha=0.5)
+ax3.grid(which='minor', linestyle=':', alpha=0.5)
+ax1.minorticks_on()
+ax3.minorticks_on()
+
+# Add BPM text display
+bpm_text = ax3.text(0.02, 0.9, 'BPM: --', transform=ax3.transAxes, 
+                    fontsize=14, fontweight='bold', color='green',
+                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+
+# Update function for the animation
+def update(frame):
+    global time_values, bpm_values, peak_times
+    
+    status = scope.read_status(read_data=True)
+    
+    # Get data for channel 1 only (index 0)
+    channel = scope.channels[0]  # Channel 1
+    new_samples = np.array(channel.get_data())
+    
+    # Calculate metrics (still need these for debug output)
+    dc = np.average(new_samples)
+    dcrms = np.sqrt(np.average(new_samples**2))
+    acrms = np.sqrt(np.average((new_samples - dc) ** 2))
+    
+    print(f"CH{channel.index + 1}: DC:{dc:.3f}V DCRMS:{dcrms:.3f}V ACRMS:{acrms:.3f}V")
+    
+    # Update waveform plot
+    x = np.arange(len(new_samples))
+    line1.set_data(x, new_samples)
+    
+    # Detect peaks (heartbeats)
+    peaks, _ = find_peaks(new_samples, height=1.92, distance=200, prominence=0.01)
+    
+    # Plot detected peaks
+    if len(peaks) > 0:
+        peaks_plot.set_data(peaks, new_samples[peaks])
+    else:
+        peaks_plot.set_data([], [])
+    
+    # Calculate heart rate (BPM)
+    current_time = time.time() - start_time
+    time_values.append(current_time)
+    
+    # Add newly detected peaks to peak_times
+    for peak_idx in peaks:
+        peak_time = current_time - (len(new_samples) - peak_idx) / sample_rate
+        peak_times.append(peak_time)
+    
+    # Keep only peaks within the last window_duration seconds
+    cutoff_time = current_time - window_duration
+    peak_times = [t for t in peak_times if t > cutoff_time]
+    
+    # Calculate BPM using RR intervals
+    if len(peak_times) > 1:
+        rr_intervals = np.diff(peak_times)  # Time differences between consecutive peaks
+        avg_rr = np.mean(rr_intervals) if len(rr_intervals) > 0 else None
         
-        # Filter parameters
-        lowcut, highcut = 0.5, 40.0
-        self.b, self.a = signal.butter(2, [lowcut / (self.data.sample_rate / 2), 
-                                      highcut / (self.data.sample_rate / 2)], 
-                                      btype='band')
+        if avg_rr and avg_rr > 0:
+            bpm = 60 / avg_rr -270  # BPM = 60 / Average RR interval (seconds)
+        else:
+            bpm = 0
+        
+        bpm_values.append(bpm)
+        bpm_text.set_text(f'BPM: {bpm:.1f}')
+    else:
+        bpm_values.append(0)
+        bpm_text.set_text('BPM: --')
+    
+    ax1.set_xlim(0, len(new_samples))
+    
+    # Keep only the most recent data points
+    if len(time_values) > 100:
+        time_values = time_values[-100:]
+        bpm_values = bpm_values[-100:]
+    
+    line3_bpm.set_data(time_values, bpm_values)
+    
+    if time_values:
+        ax3.set_xlim(min(time_values), max(time_values))
+    
+    return line1, peaks_plot, line3_bpm, bpm_text
 
-    def _initialize_device(self):
-        devices = dwf.Device.enumerate()
-        if not devices:
-            raise RuntimeError("No Digilent WaveForms device found")
-            
-        self.device = dwf.Device()
-        if not self.device.analog_input:
-            raise RuntimeError("Analog input not available")
-            
-        # Configure waveform generator
-        wavegen = self.device.analog_output
+try:
+    with dwf.Device() as device:
+        print(f"Found device: {device.name} ({device.serial_number})")
+        print("Connect heart rate sensor to Oscilloscope input 1: Signal to 1+, GND to 1-")
+        
+        wavegen = device.analog_output
         wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
         wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
         wavegen[0].configure(start=True)
 
-        # Configure analog input
-        self.device.analog_io[0][1].value = 3.3
-        self.device.analog_io[0][0].value = True
-        self.device.analog_io.master_enable = True
+        device.analog_io[0][1].value = 3.3
+        device.analog_io[0][0].value = True
+        device.analog_io.master_enable = True
         
-        self.scope = self.device.analog_input
-        self.scope[0].setup(range=0.5)
-        self.scope.scan_shift(sample_rate=self.data.sample_rate, buffer_size=4096, 
-                            configure=True, start=True)
-
-    def _estimate_heart_rate(self, ecg_signal):
-        """Detects R-peaks and estimates heart rate."""
-        filtered_ecg = signal.filtfilt(self.b, self.a, ecg_signal)
-        peaks, _ = signal.find_peaks(filtered_ecg, 
-                                   distance=self.data.sample_rate//2.5, 
-                                   height=np.mean(filtered_ecg) + 0.5*np.std(filtered_ecg))
+        scope = device.analog_input
+        scope[0].setup(range=0.5)
+        scope[1].setup(range=0.5)
+        scope.scan_shift(sample_rate=sample_rate, buffer_size=4096, configure=True, start=True)
         
-        if len(peaks) > 1:
-            rr_intervals = np.diff(peaks) / self.data.sample_rate
-            return int(60.0 / np.mean(rr_intervals))
-        return None
-
-    def _run(self):
-        heart_rates = deque(maxlen=5)
+        def on_key(event):
+            if event.key == 'a':
+                for ax in [ax1, ax3]:
+                    ymin, ymax = ax.get_ylim()
+                    center = (ymax + ymin) / 2
+                    range_val = (ymax - ymin) * 0.8
+                    ax.set_ylim(center - range_val/2, center + range_val/2)
+                fig.canvas.draw_idle()
+            elif event.key == 'z':
+                for ax in [ax1, ax3]:
+                    ymin, ymax = ax.get_ylim()
+                    center = (ymax + ymin) / 2
+                    range_val = (ymax - ymin) * 1.2
+                    ax.set_ylim(center - range_val/2, center + range_val/2)
+                fig.canvas.draw_idle()
         
-        try:
-            self._initialize_device()
-            
-            while self._running:
-                status = self.scope.read_status(read_data=True)
-                channel = self.scope.channels[0]
-                new_samples = np.array(channel.get_data())
-                
-                with self.lock:
-                    self.data.raw_samples = new_samples.tolist()
-                    self.data.waveform_buffer.extend(new_samples)
-                    
-                    if len(self.data.waveform_buffer) >= 1000:
-                        hr = self._estimate_heart_rate(np.array(self.data.waveform_buffer))
-                        if hr is not None:
-                            heart_rates.append(hr)
-                            self.data.heart_rate = int(np.mean(heart_rates))
-                            self.peaks = signal.find_peaks(self.data.waveform_buffer, 
-                                                         height=1.92, distance=200)[0]
-        except Exception as e:
-            print(f"ECG monitoring error: {e}")
-            self._running = False
-
-    def start(self):
-        if not self._running:
-            self._running = True
-            self._thread = threading.Thread(target=self._run, daemon=True)
-            self._thread.start()
-
-    def stop(self):
-        self._running = False
-        if self._thread:
-            self._thread.join()
-
-    def get_data(self) -> EcgData:
-        with self.lock:
-            return EcgData(
-                heart_rate=self.data.heart_rate,
-                waveform_buffer=deque(self.data.waveform_buffer),
-                raw_samples=list(self.data.raw_samples),
-                sample_rate=self.data.sample_rate
-            )
+        fig.canvas.mpl_connect('key_press_event', on_key)
+        
+        start_time = time.time()
+        ani = FuncAnimation(fig, update, frames=None, interval=100, blit=True, cache_frame_data=False)
+        
+        plt.tight_layout()
+        plt.show()
+        
+except KeyboardInterrupt:
+    print("\nHeart rate monitoring stopped by user")
+finally:
+    plt.close()
