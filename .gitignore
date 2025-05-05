@@ -175,3 +175,6 @@ cython_debug/
 
 # Ignore .ini files
 *.ini
+
+# Include all __init__.py files (ensure Python packages are tracked)
+!__init__.py
