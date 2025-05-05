@@ -67,7 +67,7 @@ def show_ecg_view(app_state: AppState):
         if imgui.button("Start Monitoring", (-1, 90)):
             try:
                 app_state.heart_process = subprocess.Popen(
-                    ["python", "sensors/HeartRate.py"],
+                    ["python", "src/sensors/HeartRate.py"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
