@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
 from matplotlib.patches import Rectangle
+from mpl_interactions import ioff, panhandler, zoom_factory
 
 fig, ax = plt.subplots()
 ax.plot(np.random.rand(10), 'o-')
@@ -11,6 +12,8 @@ selection_start = None
 selection_rect = None
 
 cursor = Cursor(ax, useblit=True, color='red', linewidth=2)
+disconnect_zoom = zoom_factory(ax)
+pan_handler = panhandler(fig)
 
 def on_press(event):
     global selection_start, selection_rect
