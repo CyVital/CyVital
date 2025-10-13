@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from scipy.signal import butter, filtfilt, find_peaks
 from collections import deque
+from matplotlib.widgets import Cursor
+import csv
 # import Emg as ps
 
 MAX_ADDR_7BIT = 0x57
@@ -24,6 +26,27 @@ ir_values  = deque([0]*window_size, maxlen=window_size)
 lowcut, highcut = 0.7, 4.0  # Hz
 nyq = fs / 2.0
 b, a = butter(2, [lowcut/nyq, highcut/nyq], btype='band')
+
+paused = False
+
+def on_key(event):
+    global paused
+    if event.key == 'p':
+        paused = not paused
+        print("Paused" if paused else "Resumed")
+    elif event.key == 's':
+        filename = f"pulse_data.csv"
+        save_data(filename)
+        print(f"Data saved to {filename}")
+
+def save_data(filename):
+    with open(filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Sample', 'Red', 'IR'])
+        t = 0
+        for (r, ir) in zip(red_values, ir_values):
+            writer.writerow([t, r, ir])
+            t += 1.0 / fs
 
 def filtered_ir(buf):
     return filtfilt(b, a, np.array(buf))
@@ -67,6 +90,10 @@ ax.set_ylabel("Value")
 ax.set_xlim(0, window_size)
 ax.set_ylim(0, 100000)
 ax.legend(loc='upper right')
+
+cursor = Cursor(ax, useblit=True, color='red', linewidth=1)
+
+fig.canvas.mpl_connect('key_press_event', on_key)
 
 # Text placeholders
 hr_text   = ax.text(0.02, 0.95, "", transform=ax.transAxes)
