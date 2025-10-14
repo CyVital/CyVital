@@ -39,35 +39,13 @@ time_ms = []
 red_values = []
 ir_values = []
 
-# with open('pulse_data.csv', 'r') as f:
-#     reader = csv.reader(f)
-#     next(reader)  # Skip header row
-#     for row in reader:
-#         time_ms.append(float(row[1]))
-#         red_values.append(float(row[2]))
-#         ir_values.append(float(row[3]))
-
-
-time_ms = [
-    0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
-    100, 110, 120, 130, 140, 150, 160, 170, 180, 190,
-    200, 210, 220, 230, 240, 250, 260, 270, 280, 290,
-    300, 310, 320, 330, 340, 350, 360, 370, 380, 390,
-    400, 410, 420, 430, 440, 450, 460, 470, 480, 490
-]
-
-ir_values = [
-    52000, 52100, 52300, 52600, 53000,  
-    52500, 52200, 52000, 51900, 51850,
-    51900, 52100, 52400, 52800, 53300,  
-    52700, 52300, 52000, 51800, 51750,
-    51850, 52050, 52350, 52750, 53250,  
-    52650, 52250, 51950, 51750, 51650,
-    51750, 51950, 52250, 52650, 53150,  
-    52550, 52150, 51850, 51650, 51550,
-    51650, 51850, 52150, 52550, 53050,  
-    52450, 52050, 51750, 51550, 51450
-]
+with open("C:/Users/katee/Documents/CyVitals/CyVitals/src/analysis/pulse_data.csv", 'r') as f:
+    reader = csv.reader(f)
+    next(reader)  # Skip header row
+    for row in reader:
+        time_ms.append(float(row[0]))
+        red_values.append(float(row[1]))
+        ir_values.append(float(row[2]))
 
 time_ms = np.array(time_ms)
 ir_values = np.array(ir_values)
