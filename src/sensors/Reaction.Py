@@ -19,6 +19,27 @@ signal_time = 0.0
 last_cue_time = time.time()
 random_delay = random.uniform(2, 5)
 
+paused = False
+
+def on_key(event):
+    global paused
+    if event.key == 'p':
+        paused = not paused
+        print("Paused" if paused else "Resumed")
+    elif event.key == 's':
+        filename = "C:/Users/katee/Documents/CyVitals/CyVitals/src/analysis/data.csv"
+        save_data(filename)
+        print(f"Data saved to {filename}")
+
+def save_data(filename):
+    with open(filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Sample', 'Red', 'IR'])
+        t = 0
+        for (r, ir) in zip(red_values, ir_values):
+            writer.writerow([t, r, ir])
+            t += 1.0 / fs
+
 # Setup plot
 fig, (ax_signal, ax_reaction) = plt.subplots(2, 1, figsize=(10, 6))
 fig.suptitle("Reaction Time Tracker")
