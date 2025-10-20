@@ -11,15 +11,15 @@ class Scope:
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
 
-        while self.device is None:
-             pass
+        self.device.open()
+        
         self._setup_device()
 
     def _setup_device(self):
         # try: 
             if self.device.analog_io is None:
                  print("FAILED")
-            self.device.analog_io.channels[0].nodes[1].value = 3.3
+            self.device.analog_io[0][1].value = 3.3
             self.device.analog_io[0][0].value = True
             self.device.analog_io.master_enable = True
 

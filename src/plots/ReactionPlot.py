@@ -65,3 +65,6 @@ class ReactionPlot:
         self.ax_reaction.set_xlabel("Trial")
         self.ax_reaction.grid(True)
         self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
+
+    def _close_plot(self):
+        plt.close(self.fig)
