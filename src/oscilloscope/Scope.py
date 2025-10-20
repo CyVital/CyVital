@@ -11,22 +11,29 @@ class Scope:
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
 
+        while self.device is None:
+             pass
         self._setup_device()
 
     def _setup_device(self):
-        self.device.analog_io[0][1].value = 3.3
-        self.device.analog_io[0][0].value = True
-        self.device.analog_io.master_enable = True
+        # try: 
+            if self.device.analog_io is None:
+                 print("FAILED")
+            self.device.analog_io.channels[0].nodes[1].value = 3.3
+            self.device.analog_io[0][0].value = True
+            self.device.analog_io.master_enable = True
 
-        self.device.digital_io.reset()
-        for i in range(4):
-            self.device.digital_io.channels[i].enabled = True
-            self.device.digital_io.channels[i].output_state = bool((1 >> i) & 1)
-        self.device.digital_io.configure()
+            self.device.digital_io.reset()
+            for i in range(4):
+                self.device.digital_io.channels[i].enabled = True
+                self.device.digital_io.channels[i].output_state = bool((1 >> i) & 1)
+            self.device.digital_io.configure()
 
-        self.scope = self.device.analog_input
-        self.scope[0].setup(range=3.3)
-        self.scope.scan_shift(sample_rate=self.sample_rate, buffer_size=self.buffer_size, configure=True, start=True)
+            self.scope = self.device.analog_input
+            self.scope[0].setup(range=3.3)
+            self.scope.scan_shift(sample_rate=self.sample_rate, buffer_size=self.buffer_size, configure=True, start=True)
+        # except:
+        #     print("Cannot get device")
 
     def get_samples(self):
         self.scope.read_status(read_data=True)

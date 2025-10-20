@@ -1,9 +1,13 @@
-from oscilloscope import Scope
-from plots import ReactionPlot
+from oscilloscope.Scope import Scope
+from plots.ReactionPlot import ReactionPlot
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
+import sys
+import os
 
-if __name__ == "__main__":
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+def main():
     try:
         scope = Scope()
         plot_manager = ReactionPlot()

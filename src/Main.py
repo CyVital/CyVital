@@ -81,12 +81,12 @@ if __name__ == "__main__":
     print("\n[!] Launching GUI...")
     try:
         # Correct import path based on typical structure
-        from gui.imguiHandler import main as gui_main
+        from gui.tkGui import main as gui_main
         gui_main()
     except ImportError as e:
         print(f"[!] Critical import error: {e}")
         print("Possible solutions:")
-        print("1. Check if gui/imguiHandler.py exists")
+        print("1. Check if gui/tkGui.py exists")
         print("2. Verify the directory structure")
         print("3. Check file permissions")
         sys.exit(1)
