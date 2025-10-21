@@ -11,14 +11,15 @@ class Scope:
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
 
-        self.device.open()
-        
-        self._setup_device()
+        try:
+            self.device.open()
+        except:
+            print("Device not found")
 
-    def _setup_device(self):
-        # try: 
-            if self.device.analog_io is None:
-                 print("FAILED")
+        self._setup_device_reaction()
+
+    def _setup_device_reaction(self):
+        try: 
             self.device.analog_io[0][1].value = 3.3
             self.device.analog_io[0][0].value = True
             self.device.analog_io.master_enable = True
@@ -32,8 +33,8 @@ class Scope:
             self.scope = self.device.analog_input
             self.scope[0].setup(range=3.3)
             self.scope.scan_shift(sample_rate=self.sample_rate, buffer_size=self.buffer_size, configure=True, start=True)
-        # except:
-        #     print("Cannot get device")
+        except:
+            print("Cannot setup device")
 
     def get_samples(self):
         self.scope.read_status(read_data=True)

@@ -25,7 +25,7 @@ def main():
         def update(frame):
             samples = scope.get_samples()
             t_axis = scope.get_time_axis(samples)
-            return plot_manager.update_plot(t_axis, samples)
+            return plot_manager.update_reaction_plot(t_axis, samples)
 
         ani = FuncAnimation(plot_manager.fig, update, interval=50, blit=False)
 

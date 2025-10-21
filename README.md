@@ -14,10 +14,7 @@
 - **IN-PROGRESS**: N/A
 
 ## Lead Developers
-- Ty Beresford
-- Sajan Patel
-- Daniel Karpov
-- Jay Patel
+- Kate Endersby
 
 ## External Libraries
 - imgui-bundle: [GitHub](https://github.com/pthom/imgui_bundle/)
