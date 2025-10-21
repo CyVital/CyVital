@@ -39,7 +39,7 @@ time_ms = []
 red_values = []
 ir_values = []
 
-with open("C:/Users/katee/Documents/CyVitals/CyVitals/src/analysis/pulse_data.csv", 'r') as f:
+with open("C:/Users/katee/Documents/CyVitals/src/analysis/pulse_data.csv", 'r') as f:
     reader = csv.reader(f)
     next(reader)  # Skip header row
     for row in reader:
@@ -155,8 +155,15 @@ def on_release(event):
 
         selection_start = None  # Reset for next selection
 
+def on_scroll(event):
+    global selection_rect
+    if selection_rect:
+        selection_rect.remove()
+        selection_rect = None
+
 fig.canvas.mpl_connect('button_press_event', on_press)
 fig.canvas.mpl_connect('button_release_event', on_release)
+fig.canvas.mpl_connect('scroll_event', on_scroll)
 
 # Embed the plot in the Tkinter window
 canvas = FigureCanvasTkAgg(fig, master=root)
