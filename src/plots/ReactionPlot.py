@@ -17,6 +17,9 @@ class ReactionPlot:
         self.reaction_start = None
         self.last_cue_time = time.time()
         self.random_delay = random.uniform(2, 5)
+        self.full_time = []
+        self.full_samples = []
+
 
         self._setup_plot()
 
@@ -39,7 +42,7 @@ class ReactionPlot:
         self.cue_text = self.ax_signal.text(0.02, 0.9, '', transform=self.ax_signal.transAxes, fontsize=14, color='red')
 
         self.cursor = Cursor(self.ax_signal, useblit=True, color='red', linewidth=1)
-        self.zoom = zoom_factory(self.ax_signal)
+        self.zoom = self.zoom_around_cursor(self.ax_signal)
         self.pan_handler = panhandler(self.fig)
 
         self.fig.canvas.mpl_connect('button_press_event', self.on_press)
@@ -47,12 +50,21 @@ class ReactionPlot:
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
         self.selection_start = 0
-        self.seleection_rect = None
+        self.selection_rect = None
         self.selection_end = 0
 
+        # self.ax_signal.set_autoscalex_on(True)
+
     def update_reaction_plot(self, t_axis, samples):
-        self.line_signal.set_data(t_axis, samples)
-        self.ax_signal.set_xlim(t_axis[0], t_axis[-1])
+
+        if self.full_time:
+            t_axis = t_axis + self.full_time[-1] + (1 / self.sample_rate)
+        self.full_time.extend(t_axis)
+        self.full_samples.extend(samples)
+
+        self.line_signal.set_data(self.full_time, self.full_samples)
+        self.ax_signal.set_xlim(0, self.full_time[-1])
+        # self.ax_signal.set_xlim(auto=True) 
 
         now = time.time()
         if not self.cue_active and (now - self.last_cue_time > self.random_delay):
@@ -77,6 +89,30 @@ class ReactionPlot:
             self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
 
         return self.line_signal, self.cue_text
+    
+    def zoom_around_cursor(self, ax):
+        def on_scroll(event):
+            if event.inaxes != ax:
+                return
+
+            base_scale = 1.1
+            cur_xlim = ax.get_xlim()
+            xdata = event.xdata  # Cursor x-position
+
+            if event.button == 'up':
+                scale_factor = 1 / base_scale
+            elif event.button == 'down':
+                scale_factor = base_scale
+            else:
+                scale_factor = 1
+
+            left = xdata - (xdata - cur_xlim[0]) * scale_factor
+            right = xdata + (cur_xlim[1] - xdata) * scale_factor
+
+            ax.set_xlim([left, right])
+            ax.figure.canvas.draw_idle()
+
+        ax.figure.canvas.mpl_connect('scroll_event', on_scroll)
     
     def on_press(self, event):
         if event.button == 1:
