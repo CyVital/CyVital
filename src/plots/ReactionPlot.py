@@ -19,6 +19,8 @@ class ReactionPlot:
         self.random_delay = random.uniform(2, 5)
         self.full_time = []
         self.full_samples = []
+        self.selected_times = []
+        self.selected_samples = []
 
 
         self._setup_plot()
@@ -64,7 +66,6 @@ class ReactionPlot:
 
         self.line_signal.set_data(self.full_time, self.full_samples)
         self.ax_signal.set_xlim(0, self.full_time[-1])
-        # self.ax_signal.set_xlim(auto=True) 
 
         now = time.time()
         if not self.cue_active and (now - self.last_cue_time > self.random_delay):
@@ -139,9 +140,11 @@ class ReactionPlot:
             width = abs(self.selection_end - self.selection_start)
 
             # # Extract selected data
-            # mask = (time_ms >= x0) & (time_ms <= x0 + width)
-            # selected_times = time_ms[mask]
-            # selected_ir = ir_values[mask]
+            full_time_array = np.array(self.full_time)
+            full_samples_array = np.array(self.full_samples)
+            mask = (self.full_time >= x0) & (self.full_time <= x0 + width)
+            self.selected_times = full_time_array[mask]
+            self.selected_samples = full_samples_array[mask]
 
             # Draw rectangle spanning full height
             self.selection_rect = Rectangle((x0, y_min), width, y_max - y_min,
