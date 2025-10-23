@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler, zoom_factory
+from matplotlib.patches import Rectangle
 
 class ReactionPlot:
     def __init__(self):
@@ -41,6 +42,14 @@ class ReactionPlot:
         self.zoom = zoom_factory(self.ax_signal)
         self.pan_handler = panhandler(self.fig)
 
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+
+        self.selection_start = 0
+        self.seleection_rect = None
+        self.selection_end = 0
+
     def update_reaction_plot(self, t_axis, samples):
         self.line_signal.set_data(t_axis, samples)
         self.ax_signal.set_xlim(t_axis[0], t_axis[-1])
@@ -68,7 +77,46 @@ class ReactionPlot:
             self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
 
         return self.line_signal, self.cue_text
-        
+    
+    def on_press(self, event):
+        if event.button == 1:
+            if event.inaxes == self.ax_signal:
+                self.selection_start = event.xdata
+                print(f"Selection started at x = {self.selection_start}")
+                if self.selection_rect:
+                    self.selection_rect.remove()
+                    self.selection_rect = None
+        elif self.selection_rect:
+            self.selection_rect.remove()
+            self.selection_rect = None
+
+    def on_release(self, event):
+        if event.inaxes == self.ax_signal and self.selection_start is not None and event.button == 1:
+            self.selection_end = event.xdata
+            print(f"Selection ended at x = {self.selection_end}")
+
+            # Get full height of the plot
+            y_min, y_max = self.ax_signal.get_ylim()
+
+            # Calculate rectangle position and width
+            x0 = min(self.selection_start, self.selection_end)
+            width = abs(self.selection_end - self.selection_start)
+
+            # # Extract selected data
+            # mask = (time_ms >= x0) & (time_ms <= x0 + width)
+            # selected_times = time_ms[mask]
+            # selected_ir = ir_values[mask]
+
+            # Draw rectangle spanning full height
+            self.selection_rect = Rectangle((x0, y_min), width, y_max - y_min,
+                                    linewidth=1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
+            self.ax_signal.add_patch(self.selection_rect)
+            self.fig.canvas.draw()
+
+    def on_scroll(self, event):
+        if self.selection_rect:
+            self.selection_rect.remove()
+            self.selection_rect = None 
 
     def _close_plot(self):
         plt.close(self.fig)
