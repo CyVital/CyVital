@@ -4,9 +4,9 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import sys
 import os
-
 from oscilloscope.Scope import Scope
 from plots.ReactionPlot import ReactionPlot
+
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -28,6 +28,15 @@ def main():
             return plot_manager.update_reaction_plot(t_axis, samples)
 
         ani = FuncAnimation(plot_manager.fig, update, interval=50, blit=False)
+
+        def stop_animation():
+            ani.event_source.stop()
+
+        # buttons
+        stopBtn = tk.Button(root, text="Stop", command = stop_animation)
+        stopBtn.pack()
+        saveBtn = tk.Button(root, text="Save", command = plot_manager.save_data)
+        saveBtn.pack()
 
         def on_closing():
             plot_manager._close_plot()
