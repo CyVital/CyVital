@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler, zoom_factory
 from matplotlib.patches import Rectangle
+import xlsxwriter
 
 class ReactionPlot:
     def __init__(self):
@@ -90,6 +91,9 @@ class ReactionPlot:
             self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
 
         return self.line_signal, self.cue_text
+    
+    def save_data(self):
+
     
     def zoom_around_cursor(self, ax):
         def on_scroll(event):
