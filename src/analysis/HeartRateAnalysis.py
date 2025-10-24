@@ -7,15 +7,31 @@ import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import csv
 from scipy.signal import butter, filtfilt, find_peaks
+import xlsxwriter
 
 # Create the main window
 root = tk.Tk()
 root.title("IR Plot GUI")
 
+selected_times = []
+selected_ir = []
+
 def on_closing():
     plt.close(fig)
     root.quit()
     root.destroy()
+
+def on_btn_click():
+    global selected_ir, selected_times
+    print(f"select ir: {selected_ir}")
+    workbook = xlsxwriter.Workbook('data.xlsx')
+    worksheet = workbook.add_worksheet()
+    row = 0
+    for i in range(0, len(selected_ir)):
+        worksheet.write(i, 0, selected_times[i])
+        worksheet.write(i, 1, selected_ir[i])
+        print(f"ir: {selected_ir[i]}")
+    workbook.close()
 
 root.protocol("WM_DELETE_WINDOW", on_closing)
 
@@ -31,6 +47,9 @@ bpm_label.pack(pady=10)
 
 rate_mean_label = tk.Label(root, text="Rate Mean: ", font=("Arial", 14))
 rate_mean_label.pack(pady=10)
+
+saveBtn = tk.Button(root, text="Save", command=on_btn_click)
+saveBtn.pack()
 
 #matplotlib
 fig, ax = plt.subplots()
@@ -104,7 +123,7 @@ def on_press(event):
             selection_rect = None
 
 def on_release(event):
-    global selection_start, selection_rect
+    global selection_start, selection_rect, selected_ir, selected_times
     if event.inaxes == ax and selection_start is not None:
         selection_end = event.xdata
         print(f"Selection ended at x = {selection_end}")
@@ -120,6 +139,8 @@ def on_release(event):
         mask = (time_ms >= x0) & (time_ms <= x0 + width)
         selected_times = time_ms[mask]
         selected_ir = ir_values[mask]
+
+        print(f"Selected ir: {selected_ir}")
 
         # Draw rectangle spanning full height
         selection_rect = Rectangle((x0, y_min), width, y_max - y_min,
