@@ -31,10 +31,12 @@ def main():
 
         def stop_animation():
             ani.event_source.stop()
-            # canvas.draw()
 
+        # buttons
         stopBtn = tk.Button(root, text="Stop", command = stop_animation)
         stopBtn.pack()
+        saveBtn = tk.Button(root, text="Save", command = plot_manager.save_data)
+        saveBtn.pack()
 
         def on_closing():
             plot_manager._close_plot()

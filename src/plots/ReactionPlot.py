@@ -93,6 +93,12 @@ class ReactionPlot:
         return self.line_signal, self.cue_text
     
     def save_data(self):
+        workbook = xlsxwriter.Workbook('reaction_data.xlsx')
+        worksheet = workbook.add_worksheet()
+        for i in range(0, len(self.selected_samples)):
+            worksheet.write(i, 0, self.selected_times[i])
+            worksheet.write(i, 1, self.selected_samples[i])
+        workbook.close()
 
     
     def zoom_around_cursor(self, ax):
