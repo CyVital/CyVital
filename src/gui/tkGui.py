@@ -13,21 +13,24 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 def main():
     try:
         scope = Scope()
-        plot_manager = ReactionPlot()
+        reaction_plot_manager = ReactionPlot()
         root = tk.Tk()
         root.title("CyVital")
 
         # Embed matplotlib in Tkinter
-        canvas = FigureCanvasTkAgg(plot_manager.fig, master=root)
+        canvas = FigureCanvasTkAgg(reaction_plot_manager.fig, master=root)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         def update(frame):
             samples = scope.get_samples()
             t_axis = scope.get_time_axis(samples)
-            return plot_manager.update_reaction_plot(t_axis, samples)
+            return reaction_plot_manager.update_plot(t_axis, samples)
+        
+        def save_reaction():
+            reaction_plot_manager.save_data('reaction_data.xlsx')
 
-        ani = FuncAnimation(plot_manager.fig, update, interval=50, blit=False)
+        ani = FuncAnimation(reaction_plot_manager.fig, update, interval=50, blit=False)
 
         def stop_animation():
             ani.event_source.stop()
@@ -35,11 +38,11 @@ def main():
         # buttons
         stopBtn = tk.Button(root, text="Stop", command = stop_animation)
         stopBtn.pack()
-        saveBtn = tk.Button(root, text="Save", command = plot_manager.save_data)
+        saveBtn = tk.Button(root, text="Save", command = save_reaction)
         saveBtn.pack()
 
         def on_closing():
-            plot_manager._close_plot()
+            reaction_plot_manager._close_plot()
             root.quit()
             root.destroy()
 

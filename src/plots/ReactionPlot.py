@@ -3,11 +3,11 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
-from mpl_interactions import ioff, panhandler, zoom_factory
+from mpl_interactions import ioff, panhandler
 from matplotlib.patches import Rectangle
-import xlsxwriter
+from PlotManager import PlotManager
 
-class ReactionPlot:
+class ReactionPlot(PlotManager):
     def __init__(self):
         self.sample_rate = 10000
         self.buffer_size = 512
@@ -58,7 +58,7 @@ class ReactionPlot:
 
         # self.ax_signal.set_autoscalex_on(True)
 
-    def update_reaction_plot(self, t_axis, samples):
+    def update_plot(self, t_axis, samples):
 
         if self.full_time:
             t_axis = t_axis + self.full_time[-1] + (1 / self.sample_rate)
@@ -91,39 +91,6 @@ class ReactionPlot:
             self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
 
         return self.line_signal, self.cue_text
-    
-    def save_data(self):
-        workbook = xlsxwriter.Workbook('reaction_data.xlsx')
-        worksheet = workbook.add_worksheet()
-        for i in range(0, len(self.selected_samples)):
-            worksheet.write(i, 0, self.selected_times[i])
-            worksheet.write(i, 1, self.selected_samples[i])
-        workbook.close()
-
-    
-    def zoom_around_cursor(self, ax):
-        def on_scroll(event):
-            if event.inaxes != ax:
-                return
-
-            base_scale = 1.1
-            cur_xlim = ax.get_xlim()
-            xdata = event.xdata  # Cursor x-position
-
-            if event.button == 'up':
-                scale_factor = 1 / base_scale
-            elif event.button == 'down':
-                scale_factor = base_scale
-            else:
-                scale_factor = 1
-
-            left = xdata - (xdata - cur_xlim[0]) * scale_factor
-            right = xdata + (cur_xlim[1] - xdata) * scale_factor
-
-            ax.set_xlim([left, right])
-            ax.figure.canvas.draw_idle()
-
-        ax.figure.canvas.mpl_connect('scroll_event', on_scroll)
     
     def on_press(self, event):
         if event.button == 1:
