@@ -1,32 +1,34 @@
----
 
-# CyVitals
+# CyVitals Workspace
 
-![License](https://img.shields.io/badge/License-GPL%20v3.0-blue.svg)
-![Version](https://img.shields.io/badge/Version-1.0-brightgreen.svg)
-![Status](https://img.shields.io/badge/Status-Active-success.svg)
+This repository now hosts both the original CyVitals Python tooling and the new Figma-derived React dashboard.
 
-## Project Overview
+```
+.
+├── backend/      # Python entry point, sensors, imgui shell
+└── frontend/     # React dashboard generated from the Figma export
+```
 
-**CyVitals** is dedicated to providing modular hardware in the form of sensors and its corresponding software counterpart to read, analyze and display data seen within physiological sensors.
+## Frontend (React Dashboard)
 
-## Features
-- **IN-PROGRESS**: N/A
+```bash
+cd frontend
+npm install
+npm run dev     # start the Vite dev server on http://localhost:3000
+npm run build   # create production assets in frontend/dist
+```
 
-## Lead Developers
-- Ty Beresford
-- Sajan Patel
-- Daniel Karpov
-- Jay Patel
+The generated UI lives entirely under `frontend/src`, with shared helpers in `frontend/src/components`.
 
-## External Libraries
-- imgui-bundle: [GitHub](https://github.com/pthom/imgui_bundle/)
+## Backend (Python Toolkit)
 
-## License
-CyVitals is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for more details or visit [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html).
+```bash
+python -m backend.main
+```
 
-# INSTALL MACOS
-- 1. /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-- 2. brew install cmake pkg-config freetype (OPTIONAL M1: export ARCHFLAGS="-arch arm64" or "echo 'export ARCHFLAGS="-arch arm64"' >> ~/.zshrc")
-- 3. python -m pip install --upgrade pip setuptools wheel
-- 4. python -m pip install --force-reinstall --no-cache-dir --config-settings=cmake.define.HELLOIMGUI_USE_SDL_OPENGL3=ON imgui-bundle
+The backend installer will bootstrap required Python packages before launching the existing ImGui interface.
+
+## Design Credits
+
+The dashboard UI was exported from the original Figma project: https://www.figma.com/design/Gelh7hLA9UMq0PxApqrW5r/Biomedical-Lab-Dashboard.
+  

@@ -1,0 +1,16 @@
+Demo sensors (no hardware):
+
+cd C:\Users\itsre\VScode\CyVitals
+$env:CYVITAL_DEMO = "1"
+python -m backend.gui.imguiHandler
+
+Clear the flag later with:
+    Remove-Item Env:CYVITAL_DEMO
+
+
+Real hardware:
+
+cd C:\Users\itsre\VScode\CyVitals
+Remove-Item Env:CYVITAL_DEMO -ErrorAction SilentlyContinue
+python -m backend.gui.imguiHandler
+
