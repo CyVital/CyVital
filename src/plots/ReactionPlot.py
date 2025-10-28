@@ -93,8 +93,8 @@ class ReactionPlot(PlotManager):
         PlotManager.on_press(event, self.ax_signal)
 
     def on_release(self, event):
-        # PlotManager
-            self.fig.canvas.draw()
+        PlotManager.on_release(event, self.ax_signal)
+        self.fig.canvas.draw()
 
     def on_scroll(self, event):
         if self.selection_rect:
