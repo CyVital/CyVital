@@ -16,9 +16,9 @@ class Scope:
         except:
             print("Device not found")
 
-        self._setup_device_reaction()
+        self.setup_device_reaction()
 
-    def _setup_device_reaction(self):
+    def setup_device_reaction(self):
         try: 
             self.device.analog_io[0][1].value = 3.3
             self.device.analog_io[0][0].value = True
@@ -27,7 +27,7 @@ class Scope:
             self.device.digital_io.reset()
             for i in range(4):
                 self.device.digital_io.channels[i].enabled = True
-                self.device.digital_io.channels[i].output_state = bool((1 >> i) & 1)
+                self.device.digital_io.channels[i].output_state = bool((1 >> i) & 1) #this is setting channel 0 true, and the others false
             self.device.digital_io.configure()
 
             self.scope = self.device.analog_input
@@ -36,13 +36,13 @@ class Scope:
         except:
             print("Cannot setup device")
 
-    def get_samples(self):
+    def get_reaction_samples(self):
         self.scope.read_status(read_data=True)
         samples = np.array(self.scope.channels[0].get_data())
         self.signal_time += len(samples) / self.sample_rate
         return samples
 
-    def get_time_axis(self, samples):
+    def get_reaction_time_axis(self, samples):
         return np.linspace(self.signal_time - len(samples) / self.sample_rate, self.signal_time, len(samples))
 
     def reset(self):

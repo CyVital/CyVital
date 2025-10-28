@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
-from matplotlib.patches import Rectangle
 from PlotManager import PlotManager
 
 class ReactionPlot(PlotManager):
@@ -20,8 +19,6 @@ class ReactionPlot(PlotManager):
         self.random_delay = random.uniform(2, 5)
         self.full_time = []
         self.full_samples = []
-        self.selected_times = []
-        self.selected_samples = []
 
 
         self._setup_plot()
@@ -93,40 +90,10 @@ class ReactionPlot(PlotManager):
         return self.line_signal, self.cue_text
     
     def on_press(self, event):
-        if event.button == 1:
-            if event.inaxes == self.ax_signal:
-                self.selection_start = event.xdata
-                print(f"Selection started at x = {self.selection_start}")
-                if self.selection_rect:
-                    self.selection_rect.remove()
-                    self.selection_rect = None
-        elif self.selection_rect:
-            self.selection_rect.remove()
-            self.selection_rect = None
+        PlotManager.on_press(event, self.ax_signal)
 
     def on_release(self, event):
-        if event.inaxes == self.ax_signal and self.selection_start is not None and event.button == 1:
-            self.selection_end = event.xdata
-            print(f"Selection ended at x = {self.selection_end}")
-
-            # Get full height of the plot
-            y_min, y_max = self.ax_signal.get_ylim()
-
-            # Calculate rectangle position and width
-            x0 = min(self.selection_start, self.selection_end)
-            width = abs(self.selection_end - self.selection_start)
-
-            # # Extract selected data
-            full_time_array = np.array(self.full_time)
-            full_samples_array = np.array(self.full_samples)
-            mask = (self.full_time >= x0) & (self.full_time <= x0 + width)
-            self.selected_times = full_time_array[mask]
-            self.selected_samples = full_samples_array[mask]
-
-            # Draw rectangle spanning full height
-            self.selection_rect = Rectangle((x0, y_min), width, y_max - y_min,
-                                    linewidth=1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
-            self.ax_signal.add_patch(self.selection_rect)
+        # PlotManager
             self.fig.canvas.draw()
 
     def on_scroll(self, event):

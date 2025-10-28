@@ -23,8 +23,8 @@ def main():
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         def update(frame):
-            samples = scope.get_samples()
-            t_axis = scope.get_time_axis(samples)
+            samples = scope.get__reaction_samples()
+            t_axis = scope.get_reaction_time_axis(samples)
             return reaction_plot_manager.update_plot(t_axis, samples)
         
         def save_reaction():
