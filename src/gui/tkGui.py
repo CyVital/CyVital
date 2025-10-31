@@ -28,7 +28,7 @@ def main():
             return reaction_plot_manager.update_plot(t_axis, samples)
         
         def save_reaction():
-            reaction_plot_manager.save_data('reaction_data.xlsx')
+            reaction_plot_manager.save_data('reaction_data2.xlsx')
 
         ani = FuncAnimation(reaction_plot_manager.fig, update, interval=50, blit=False)
 

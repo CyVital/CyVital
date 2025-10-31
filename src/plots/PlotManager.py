@@ -54,7 +54,7 @@ class PlotManager:
             self.selection_rect.remove()
             self.selection_rect = None
 
-    def on_release(self, event, ax):
+    def on_release(self, event, ax, time, samples):
         if event.inaxes == ax and self.selection_start and event.button == 1:
             self.selection_end = event.xdata
             print(f"Selection ended at x = {self.selection_end}")
@@ -67,9 +67,9 @@ class PlotManager:
             width = abs(self.selection_end - self.selection_start)
 
             # # Extract selected data
-            full_time_array = np.array(self.full_time)
-            full_samples_array = np.array(self.full_samples)
-            mask = (self.full_time >= x0) & (self.full_time <= x0 + width)
+            full_time_array = np.array(time)
+            full_samples_array = np.array(samples)
+            mask = (time >= x0) & (time <= x0 + width)
             self.selected_times = full_time_array[mask]
             self.selected_samples = full_samples_array[mask]
 
@@ -77,3 +77,8 @@ class PlotManager:
             self.selection_rect = Rectangle((x0, y_min), width, y_max - y_min,
                                     linewidth=1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
             ax.add_patch(self.selection_rect)
+
+    def on_scroll(self, event):
+        if self.selection_rect:
+            self.selection_rect.remove()
+            self.selection_rect = None 

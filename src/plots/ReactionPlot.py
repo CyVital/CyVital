@@ -90,16 +90,11 @@ class ReactionPlot(PlotManager):
         return self.line_signal, self.cue_text
     
     def on_press(self, event):
-        PlotManager.on_press(event, self.ax_signal)
+        PlotManager.on_press(self, event, self.ax_signal)
 
     def on_release(self, event):
-        PlotManager.on_release(event, self.ax_signal)
+        PlotManager.on_release(self, event, self.ax_signal, self.full_time, self.full_samples)
         self.fig.canvas.draw()
-
-    def on_scroll(self, event):
-        if self.selection_rect:
-            self.selection_rect.remove()
-            self.selection_rect = None 
 
     def _close_plot(self):
         plt.close(self.fig)
