@@ -9,7 +9,6 @@ from PlotManager import PlotManager
 class ReactionPlot(PlotManager):
     def __init__(self):
         self.sample_rate = 10000
-        self.buffer_size = 512
         self.threshold_voltage = 2
 
         self.reaction_times = []
@@ -30,6 +29,7 @@ class ReactionPlot(PlotManager):
         self.line_signal, = self.ax_signal.plot([], [], lw=1)
         self.ax_signal.set_ylim(0, 3.5)
         self.ax_signal.set_ylabel("Button Voltage (V)")
+        self.ax_signal.set_xlabel("Time (ms)")
         self.ax_signal.set_xlim(0)
         self.ax_signal.grid(True)
 
@@ -53,8 +53,6 @@ class ReactionPlot(PlotManager):
         self.selection_rect = None
         self.selection_end = 0
 
-        # self.ax_signal.set_autoscalex_on(True)
-
     def update_plot(self, t_axis, samples):
 
         if self.full_time:
@@ -65,12 +63,14 @@ class ReactionPlot(PlotManager):
         self.line_signal.set_data(self.full_time, self.full_samples)
         self.ax_signal.set_xlim(0, self.full_time[-1])
 
+        # Start cue if delay has passed
         now = time.time()
         if not self.cue_active and (now - self.last_cue_time > self.random_delay):
             self.cue_active = True
             self.reaction_start = now
             self.cue_text.set_text("GO!")
 
+        # Detect button press
         if self.cue_active and np.any(samples > self.threshold_voltage):
             rt_ms = (time.time() - self.reaction_start) * 1000
             self.reaction_times.append(rt_ms)
