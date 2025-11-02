@@ -65,7 +65,7 @@ class EMGPlot(PlotManager):
         return butter(order, [self.lowcut/nyq, self.highcut/nyq], btype="band")
 
     def _bandpass_filter(self, data, fs, order=4):
-        b, a = self._butter_bandpass(self.lowcut, self.highcut, fs, order)
+        b, a = self._butter_bandpass(fs, order)
         return lfilter(b, a, data)
 
     def _moving_average(self, data):

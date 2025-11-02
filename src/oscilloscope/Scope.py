@@ -55,11 +55,12 @@ class Scope:
         raw = np.array(self.scope.channels[0].get_data())
         return raw
     
-    def get_emg_time_axis(self):
+    def get_emg_time_axis(self, samples):
         t_start = self.emg_sample_count / self.emg_sample_rate
-        t_axis  = np.arange(self.emg_buffer_size) / self.emg_sample_rate + t_start
-        self.emg_sample_count += self.emg_buffer_size
+        t_axis  = np.arange(len(samples)) / self.emg_sample_rate + t_start
+        self.emg_sample_count += len(samples)
         return t_axis
+
 
     def get_reaction_time_axis(self, samples):
         return np.linspace(self.reaction_signal_time - len(samples) / self.reaction_sample_rate, self.reaction_signal_time, len(samples))

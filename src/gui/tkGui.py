@@ -26,7 +26,7 @@ def main():
 
         def update(frame):
             samples = scope.get_emg_samples()
-            t_axis = scope.get_emg_time_axis()
+            t_axis = scope.get_emg_time_axis(samples)
             return emg_plot_manager.update_plot(t_axis, samples)
         
         def save():
