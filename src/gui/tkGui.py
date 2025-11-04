@@ -16,6 +16,7 @@ TO ADD NEW SENSOR
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import tkinter as tk
@@ -32,6 +33,7 @@ SRC_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
+from oscilloscope.FakeScope import FakeScope
 from oscilloscope.Scope import Scope
 from plots.ReactionPlot import ReactionPlot
 
@@ -81,14 +83,13 @@ class SensorModule:
         #Fetch new data and describe what should be rendered
         return SensorUpdate()
 
-    def save_data(self) -> None:
+    def save_data(self) -> Optional[str]:
         #send collected data when export button
         raise NotImplementedError("Export not implemented for this module.")
 
     def cleanup(self) -> None:
         #Release resources when deactivated
         pass
-
 
 class ReactionSensorModule(SensorModule):
     #reaction-time workflow within the app
@@ -136,8 +137,8 @@ class ReactionSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
-    def save_data(self) -> None:
-        self.plot.save_data()
+    def save_data(self) -> Optional[str]:
+        return self.plot.save_data()
 
     def cleanup(self) -> None:
         self.plot._close_plot()
@@ -664,8 +665,11 @@ class CyVitalApp:
 
     def export_data(self) -> None:
         if self.current_module and self.current_module.supports_export:
-            self.current_module.save_data()
-            self.log_status_var.set("Data exported.")
+            destination = self.current_module.save_data()
+            if destination:
+                self.log_status_var.set(f"Data exported: {destination}")
+            else:
+                self.log_status_var.set("Data exported.")
 
     def shutdown(self) -> None:
         self._stop_animation()
@@ -680,8 +684,25 @@ class CyVitalApp:
         self.root.destroy()
 
 
-def main() -> None:
-    scope = Scope()
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description="CyVital GUI")
+    parser.add_argument(
+        "--fake-scope",
+        action="store_true",
+        help="Run the app with synthetic oscilloscope data instead of hardware.",
+    )
+    parser.add_argument(
+        "--fake-seed",
+        type=int,
+        help="Optional random seed for the fake scope to get repeatable traces.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.fake_scope:
+        scope = FakeScope(rng_seed=args.fake_seed)
+    else:
+        scope = Scope()
+
     root = tk.Tk()
     app = CyVitalApp(root, scope)
 

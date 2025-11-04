@@ -1,5 +1,7 @@
 import time
 import random
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
@@ -93,12 +95,18 @@ class ReactionPlot:
         return self.line_signal, self.cue_text
     
     def save_data(self):
-        workbook = xlsxwriter.Workbook('reaction_data.xlsx')
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_path = downloads_dir / f"reaction_data_{timestamp}.xlsx"
+
+        workbook = xlsxwriter.Workbook(str(file_path))
         worksheet = workbook.add_worksheet()
         for i in range(0, len(self.selected_samples)):
             worksheet.write(i, 0, self.selected_times[i])
             worksheet.write(i, 1, self.selected_samples[i])
         workbook.close()
+        return str(file_path)
 
     
     def zoom_around_cursor(self, ax):
