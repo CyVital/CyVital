@@ -1,6 +1,7 @@
 import xlsxwriter
 from matplotlib.patches import Rectangle
 import numpy as np
+from pathlib import Path
 
 class PlotManager:
 
@@ -35,12 +36,15 @@ class PlotManager:
         ax.figure.canvas.mpl_connect('scroll_event', on_scroll)
 
     def save_data(self, filename):
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
         workbook = xlsxwriter.Workbook(filename)
         worksheet = workbook.add_worksheet()
         for i in range(0, len(self.selected_samples)):
             worksheet.write(i, 0, self.selected_times[i])
             worksheet.write(i, 1, self.selected_samples[i])
         workbook.close()
+        return filename
 
     def on_press(self, event, ax):
         if event.button == 1:

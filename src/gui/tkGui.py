@@ -23,6 +23,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from statistics import mean
 from typing import Callable, Dict, Optional, Tuple
+import time
 
 from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -103,10 +104,10 @@ class ReactionSensorModule(SensorModule):
         return self.plot.fig
 
     def update(self, scope: Scope) -> SensorUpdate:
-        samples = scope.get_samples()
-        t_axis = scope.get_time_axis(samples)
+        samples = scope.get_reaction_samples()
+        t_axis = scope.get_reaction_time_axis(samples)
 
-        artists = self.plot.update_reaction_plot(t_axis, samples)
+        artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
             artists_tuple: Tuple[object, ...] = tuple()
         elif isinstance(artists, tuple):
@@ -138,7 +139,9 @@ class ReactionSensorModule(SensorModule):
         )
 
     def save_data(self) -> Optional[str]:
-        return self.plot.save_data()
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"reaction_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
 
     def cleanup(self) -> None:
         self.plot._close_plot()
