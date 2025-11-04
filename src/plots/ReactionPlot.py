@@ -1,5 +1,7 @@
 import time
 import random
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
@@ -88,6 +90,7 @@ class ReactionPlot(PlotManager):
             self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
 
         return self.line_signal, self.cue_text
+    
     
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax_signal)
