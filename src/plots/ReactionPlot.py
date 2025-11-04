@@ -3,14 +3,12 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
-from mpl_interactions import ioff, panhandler, zoom_factory
-from matplotlib.patches import Rectangle
-import xlsxwriter
+from mpl_interactions import ioff, panhandler
+from PlotManager import PlotManager
 
-class ReactionPlot:
+class ReactionPlot(PlotManager):
     def __init__(self):
         self.sample_rate = 10000
-        self.buffer_size = 512
         self.threshold_voltage = 2
 
         self.reaction_times = []
@@ -20,8 +18,6 @@ class ReactionPlot:
         self.random_delay = random.uniform(2, 5)
         self.full_time = []
         self.full_samples = []
-        self.selected_times = []
-        self.selected_samples = []
 
 
         self._setup_plot()
@@ -33,6 +29,7 @@ class ReactionPlot:
         self.line_signal, = self.ax_signal.plot([], [], lw=1)
         self.ax_signal.set_ylim(0, 3.5)
         self.ax_signal.set_ylabel("Button Voltage (V)")
+        self.ax_signal.set_xlabel("Time (ms)")
         self.ax_signal.set_xlim(0)
         self.ax_signal.grid(True)
 
@@ -56,9 +53,7 @@ class ReactionPlot:
         self.selection_rect = None
         self.selection_end = 0
 
-        # self.ax_signal.set_autoscalex_on(True)
-
-    def update_reaction_plot(self, t_axis, samples):
+    def update_plot(self, t_axis, samples):
 
         if self.full_time:
             t_axis = t_axis + self.full_time[-1] + (1 / self.sample_rate)
@@ -68,12 +63,14 @@ class ReactionPlot:
         self.line_signal.set_data(self.full_time, self.full_samples)
         self.ax_signal.set_xlim(0, self.full_time[-1])
 
+        # Start cue if delay has passed
         now = time.time()
         if not self.cue_active and (now - self.last_cue_time > self.random_delay):
             self.cue_active = True
             self.reaction_start = now
             self.cue_text.set_text("GO!")
 
+        # Detect button press
         if self.cue_active and np.any(samples > self.threshold_voltage):
             rt_ms = (time.time() - self.reaction_start) * 1000
             self.reaction_times.append(rt_ms)
@@ -92,80 +89,12 @@ class ReactionPlot:
 
         return self.line_signal, self.cue_text
     
-    def save_data(self):
-        workbook = xlsxwriter.Workbook('reaction_data.xlsx')
-        worksheet = workbook.add_worksheet()
-        for i in range(0, len(self.selected_samples)):
-            worksheet.write(i, 0, self.selected_times[i])
-            worksheet.write(i, 1, self.selected_samples[i])
-        workbook.close()
-
-    
-    def zoom_around_cursor(self, ax):
-        def on_scroll(event):
-            if event.inaxes != ax:
-                return
-
-            base_scale = 1.1
-            cur_xlim = ax.get_xlim()
-            xdata = event.xdata  # Cursor x-position
-
-            if event.button == 'up':
-                scale_factor = 1 / base_scale
-            elif event.button == 'down':
-                scale_factor = base_scale
-            else:
-                scale_factor = 1
-
-            left = xdata - (xdata - cur_xlim[0]) * scale_factor
-            right = xdata + (cur_xlim[1] - xdata) * scale_factor
-
-            ax.set_xlim([left, right])
-            ax.figure.canvas.draw_idle()
-
-        ax.figure.canvas.mpl_connect('scroll_event', on_scroll)
-    
     def on_press(self, event):
-        if event.button == 1:
-            if event.inaxes == self.ax_signal:
-                self.selection_start = event.xdata
-                print(f"Selection started at x = {self.selection_start}")
-                if self.selection_rect:
-                    self.selection_rect.remove()
-                    self.selection_rect = None
-        elif self.selection_rect:
-            self.selection_rect.remove()
-            self.selection_rect = None
+        PlotManager.on_press(self, event, self.ax_signal)
 
     def on_release(self, event):
-        if event.inaxes == self.ax_signal and self.selection_start is not None and event.button == 1:
-            self.selection_end = event.xdata
-            print(f"Selection ended at x = {self.selection_end}")
-
-            # Get full height of the plot
-            y_min, y_max = self.ax_signal.get_ylim()
-
-            # Calculate rectangle position and width
-            x0 = min(self.selection_start, self.selection_end)
-            width = abs(self.selection_end - self.selection_start)
-
-            # # Extract selected data
-            full_time_array = np.array(self.full_time)
-            full_samples_array = np.array(self.full_samples)
-            mask = (self.full_time >= x0) & (self.full_time <= x0 + width)
-            self.selected_times = full_time_array[mask]
-            self.selected_samples = full_samples_array[mask]
-
-            # Draw rectangle spanning full height
-            self.selection_rect = Rectangle((x0, y_min), width, y_max - y_min,
-                                    linewidth=1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
-            self.ax_signal.add_patch(self.selection_rect)
-            self.fig.canvas.draw()
-
-    def on_scroll(self, event):
-        if self.selection_rect:
-            self.selection_rect.remove()
-            self.selection_rect = None 
+        PlotManager.on_release(self, event, self.ax_signal, self.full_time, self.full_samples)
+        self.fig.canvas.draw()
 
     def _close_plot(self):
         plt.close(self.fig)
