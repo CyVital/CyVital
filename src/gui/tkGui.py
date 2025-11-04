@@ -80,7 +80,7 @@ class SensorModule:
         return None
 
     def update(self, scope: Scope) -> SensorUpdate:
-        #Fetch new data and describe what should be rendered
+        #Fetch new data and describe what should ouput
         return SensorUpdate()
 
     def save_data(self) -> Optional[str]:
@@ -88,11 +88,11 @@ class SensorModule:
         raise NotImplementedError("Export not implemented for this module.")
 
     def cleanup(self) -> None:
-        #Release resources when deactivated
+        #Release resource
         pass
 
 class ReactionSensorModule(SensorModule):
-    #reaction-time workflow within the app
+    #reaction-time workflow within app
 
     supports_export = True
 
