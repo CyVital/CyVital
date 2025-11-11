@@ -9,6 +9,7 @@ class Scope:
         self.emg_sample_rate        = 4000
         self.emg_buffer_size        = 2048
         self.emg_sample_count = 0
+        self.ecg_sample_rate = 8192
 
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
@@ -44,6 +45,7 @@ class Scope:
         except:
             print("Cannot setup reaction scope")
 
+    # Maybe the get_{sensor}_samples should all be the same get_analog_samples function since they're the same???
     def get_reaction_samples(self):
         self.scope.read_status(read_data=True)
         samples = np.array(self.scope.channels[0].get_data())
@@ -54,6 +56,11 @@ class Scope:
         self.scope.read_status(read_data=True)
         raw = np.array(self.scope.channels[0].get_data())
         return raw
+    
+    def get_ecg_samples(self):
+        self.scope.read_status(read_data=True)
+        new_samples = np.array(self.scope.channels[0].get_data())
+        return new_samples
     
     def get_emg_time_axis(self, samples):
         t_start = self.emg_sample_count / self.emg_sample_rate
@@ -66,6 +73,8 @@ class Scope:
         return np.linspace(self.reaction_signal_time - len(samples) / self.reaction_sample_rate, self.reaction_signal_time, len(samples))
     
     def setup_device_emg(self):
+
+        self.setup_device_analog()
 
         # Optional DIO setup
         self.device.digital_io.reset()
@@ -81,6 +90,19 @@ class Scope:
                          buffer_size=self.emg_buffer_size,
                          configure=True,
                          start=True)
+
+    def setup_device_ecg(self):
+        self.setup_device_analog()
+
+        self.wavegen = self.device.analog_output
+        self.wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
+        self.wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
+        self.wavegen[0].configure(start=True)
+
+        self.scope = self.device.analog_input
+        self.scope[0].setup(range=0.5)
+        self.scope[1].setup(range=0.5)
+        self.scope.scan_shift(sample_rate=self.ecg_sample_rate, buffer_size=4096, configure=True, start=True)
 
     def reset(self):
         self.device.digital_io.reset()
