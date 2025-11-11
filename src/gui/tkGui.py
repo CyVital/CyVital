@@ -172,6 +172,8 @@ class ReactionSensorModule(SensorModule):
 class ECGSensorModule(SensorModule):
     """Streams ECG samples into the ECGPlot and surfaces BPM stats."""
 
+    supports_export = True
+
     def __init__(self) -> None:
         self.plot = ECGPlot()
         self._ecg_configured = False
@@ -224,6 +226,11 @@ class ECGSensorModule(SensorModule):
             log_message=log,
             artists=artists_tuple,
         )
+
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"ecg_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
 
     def cleanup(self) -> None:
         self.plot._close_plot()

@@ -1,6 +1,5 @@
 import time
 import random
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,6 +20,7 @@ class ReactionPlot(PlotManager):
         self.random_delay = random.uniform(2, 5)
         self.full_time = []
         self.full_samples = []
+        self.trial_timestamps = []
 
 
         self._setup_plot()
@@ -77,6 +77,7 @@ class ReactionPlot(PlotManager):
         if self.cue_active and np.any(samples > self.threshold_voltage):
             rt_ms = (time.time() - self.reaction_start) * 1000
             self.reaction_times.append(rt_ms)
+            self.trial_timestamps.append(self.full_time[-1] if self.full_time else 0.0)
             self.cue_active = False
             self.last_cue_time = time.time()
             self.random_delay = random.uniform(2, 5)
@@ -102,3 +103,57 @@ class ReactionPlot(PlotManager):
 
     def _close_plot(self):
         plt.close(self.fig)
+
+    def save_data(self, filename):
+        workbook, destination = self._create_workbook(filename)
+
+        guide = workbook.add_worksheet("Read Me")
+        guide.set_column(0, 0, 22)
+        guide.set_column(1, 1, 90)
+        guide.write(0, 0, "Worksheet")
+        guide.write(0, 1, "How to use it - SWITCH BETWEEN TABS AT BOTTOM")
+        guide.write(1, 0, "Reaction Trials")
+        guide.write(
+            1,
+            1,
+            "Each row is a full trial. Use 'Reaction Time (ms)' to compare attempts "
+            "and 'Running Avg (ms)' to see overall progress.",
+        )
+        guide.write(2, 0, "Raw Signal")
+        guide.write(
+            2,
+            1,
+            "Time-series voltage trace for every captured sample. Plot columns A/B to "
+            "inspect button behavior or recreate the graph.",
+        )
+        if self.selected_samples:
+            guide.write(3, 0, "Selected Window")
+            guide.write(
+                3,
+                1,
+                "Only present when you drag-select a region in the GUI. Focused view "
+                "of the highlighted time span for closer study.",
+            )
+
+        trials_ws = workbook.add_worksheet("Reaction Trials")
+        trials_ws.write_row(0, 0, ["Trial #", "Reaction Time (ms)", "Running Avg (ms)", "Timestamp (s)"])
+        running_total = 0.0
+        for idx, rt in enumerate(self.reaction_times, start=1):
+            running_total += rt
+            avg = running_total / idx
+            timestamp = self.trial_timestamps[idx - 1] if idx - 1 < len(self.trial_timestamps) else ""
+            trials_ws.write_row(idx, 0, [idx, rt, avg, timestamp])
+
+        raw_ws = workbook.add_worksheet("Raw Signal")
+        raw_ws.write_row(0, 0, ["Time (s)", "Button Voltage (V)"])
+        for idx, (t_value, sample) in enumerate(zip(self.full_time, self.full_samples), start=1):
+            raw_ws.write_row(idx, 0, [t_value, sample])
+
+        if self.selected_samples:
+            sel_ws = workbook.add_worksheet("Selected Window")
+            sel_ws.write_row(0, 0, ["Time (s)", "Button Voltage (V)"])
+            for idx, (t_value, sample) in enumerate(zip(self.selected_times, self.selected_samples), start=1):
+                sel_ws.write_row(idx, 0, [float(t_value), float(sample)])
+
+        workbook.close()
+        return str(destination)

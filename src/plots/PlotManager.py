@@ -35,16 +35,26 @@ class PlotManager:
 
         ax.figure.canvas.mpl_connect('scroll_event', on_scroll)
 
-    def save_data(self, filename):
+    def _prepare_export_path(self, filename):
         downloads_dir = Path.home() / "Downloads"
         downloads_dir.mkdir(parents=True, exist_ok=True)
-        workbook = xlsxwriter.Workbook(filename)
-        worksheet = workbook.add_worksheet()
+        return downloads_dir / filename
+
+    def _create_workbook(self, filename):
+        destination = self._prepare_export_path(filename)
+        workbook = xlsxwriter.Workbook(str(destination))
+        return workbook, destination
+
+    def save_data(self, filename):
+        workbook, destination = self._create_workbook(filename)
+        worksheet = workbook.add_worksheet("Selected Data")
+        worksheet.write(0, 0, "Time (s)")
+        worksheet.write(0, 1, "Sample Value")
         for i in range(0, len(self.selected_samples)):
-            worksheet.write(i, 0, self.selected_times[i])
-            worksheet.write(i, 1, self.selected_samples[i])
+            worksheet.write(i + 1, 0, self.selected_times[i])
+            worksheet.write(i + 1, 1, self.selected_samples[i])
         workbook.close()
-        return filename
+        return str(destination)
 
     def on_press(self, event, ax):
         if event.button == 1:
