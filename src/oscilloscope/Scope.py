@@ -10,6 +10,7 @@ class Scope:
         self.emg_buffer_size        = 2048
         self.emg_sample_count = 0
         self.ecg_sample_rate = 8192
+        self.ecg_signal_time = 0.0
 
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
@@ -60,7 +61,15 @@ class Scope:
     def get_ecg_samples(self):
         self.scope.read_status(read_data=True)
         new_samples = np.array(self.scope.channels[0].get_data())
+        self.ecg_signal_time += len(new_samples) / self.ecg_sample_rate
         return new_samples
+
+    def get_ecg_time_axis(self, samples):
+        return np.linspace(
+            self.ecg_signal_time - len(samples) / self.ecg_sample_rate,
+            self.ecg_signal_time,
+            len(samples),
+        )
     
     def get_emg_time_axis(self, samples):
         t_start = self.emg_sample_count / self.emg_sample_rate

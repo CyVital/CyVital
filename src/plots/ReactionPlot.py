@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
-from PlotManager import PlotManager
+from .PlotManager import PlotManager
 
 class ReactionPlot(PlotManager):
     def __init__(self):
+        super().__init__()
         self.sample_rate = 10000
         self.threshold_voltage = 2
 

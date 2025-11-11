@@ -1,11 +1,16 @@
-from PlotManager import PlotManager
+from .PlotManager import PlotManager
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import find_peaks
 import time
 
-class EMGPlot(PlotManager):
+try:
+    from scipy.signal import find_peaks as scipy_find_peaks
+except ImportError:  # pragma: no cover
+    scipy_find_peaks = None
+
+class ECGPlot(PlotManager):
     def __init__(self):
+        super().__init__()
         # Initialize empty data
         self.bpm_values = []
         self.time_values = []
@@ -65,7 +70,7 @@ class EMGPlot(PlotManager):
         self.line1.set_data(x, samples)
 
         # Detect peaks (heartbeats)
-        peaks, _ = find_peaks(samples, height=1.92, distance=200, prominence=0.01)
+        peaks, _ = self._find_peaks(samples, height=1.92, distance=200, prominence=0.01)
     
         # Plot detected peaks
         if len(peaks) > 0:
@@ -109,3 +114,25 @@ class EMGPlot(PlotManager):
     
     def _close_plot(self):
         plt.close(self.fig)
+
+    def _find_peaks(self, samples, height=0.0, distance=1, prominence=0.0):
+        """Use SciPy's find_peaks when available, otherwise fall back to a simple detector."""
+        if scipy_find_peaks:
+            return scipy_find_peaks(samples, height=height, distance=distance, prominence=prominence)
+
+        # Basic fallback: detect local maxima above height and spaced by `distance` samples.
+        samples = np.asarray(samples)
+        candidate_indices = []
+        last_idx = -distance
+        for idx in range(1, len(samples) - 1):
+            if samples[idx] < height:
+                continue
+            if samples[idx] <= samples[idx - 1] or samples[idx] <= samples[idx + 1]:
+                continue
+            if samples[idx] - samples[idx - 1] < prominence or samples[idx] - samples[idx + 1] < prominence:
+                continue
+            if idx - last_idx < distance:
+                continue
+            candidate_indices.append(idx)
+            last_idx = idx
+        return np.array(candidate_indices, dtype=int), {}
