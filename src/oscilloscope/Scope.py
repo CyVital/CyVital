@@ -144,13 +144,12 @@ class Scope:
     def get_pulse_ox_samples(self):
         samples, nak = self.i2c.write_read(self.MAX_ADDR_8BIT, bytes([0x07]), 6)
         if nak == 0:
-            red = ((samples[0]<<16)|(samples[1]<<8)|samples[2]) & 0x03FFFF
-            ir  = ((samples[3]<<16)|(samples[4]<<8)|samples[5]) & 0x03FFFF
+            pass
         else:
             print(f"I2C NACK at index {nak}")
-            return None, None
+            return None
 
-        return red, ir
+        return samples
     
     def reset(self):
         self.device.digital_io.reset()

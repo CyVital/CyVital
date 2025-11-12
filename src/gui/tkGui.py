@@ -253,18 +253,10 @@ class PulseOxSensorModule(SensorModule):
         return self.plot.fig
 
     def update(self, scope: Scope) -> SensorUpdate:
-        red, ir = scope.get_pulse_ox_samples()
-
-        if red is None or ir is None:
-            return SensorUpdate(
-                primary_value="--",
-                secondary_value="--",
-                log_message="No data (I2C read failed)",
-                artists=(),
-            )
+        samples = scope.get_pulse_ox_samples()
 
 
-        artists = self.plot.update_plot(red, ir)
+        artists = self.plot.update_plot(None, samples)
         if artists is None:
             artists_tuple: Tuple[object, ...] = tuple()
         elif isinstance(artists, tuple):

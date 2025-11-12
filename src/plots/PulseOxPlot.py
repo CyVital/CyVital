@@ -15,6 +15,10 @@ class PulseOxPlot(PlotManager):
         self.red_values = deque([0]*self.window_size, maxlen=self.window_size)
         self.ir_values  = deque([0]*self.window_size, maxlen=self.window_size)
 
+        self.all_red_bits = []
+        self.all_ir_bits = []
+
+
         # --- Band‑pass filter design ---
         self.lowcut, self.highcut = 0.7, 4.0  # Hz
         self.nyq = self.fs / 2.0
@@ -23,7 +27,15 @@ class PulseOxPlot(PlotManager):
         self._setup_plot()
 
     def _setup_plot(self):
-        self.fig, self.ax = plt.subplots(figsize=(8,5))
+        self.fig, (self.ax_dig, self.ax) = plt.subplots(2, 1, figsize=(10,8))
+        
+        self.line_red_dig, = self.ax_dig.step([], [], where='mid', label='Red Bits')
+        self.ax_dig.set_title("Digital Signal")
+        self.ax_dig.set_xlabel("Time step")
+        self.ax_dig.set_ylabel("Bit Value")
+        self.ax_dig.set_xlim(0, self.window_size)
+        self.ax_dig.set_ylim(0, 1.1)
+        
         self.line_red, = self.ax.plot([], [], label='Red')
         self.line_ir,  = self.ax.plot([], [], label='IR')
         self.ax.set_title("MAX30101 Pulse Sensor Readings")
@@ -37,10 +49,23 @@ class PulseOxPlot(PlotManager):
         self.hr_text   = self.ax.text(0.02, 0.95, "", transform=self.ax.transAxes)
         self.spo2_text = self.ax.text(0.02, 0.90, "", transform=self.ax.transAxes)
     
-    def update_plot(self, red, ir):
+    def update_plot(self, time_axis, samples):
+        red = ((samples[0]<<16)|(samples[1]<<8)|samples[2]) & 0x03FFFF
+        ir  = ((samples[3]<<16)|(samples[4]<<8)|samples[5]) & 0x03FFFF
         self.red_values.append(red)
         self.ir_values.append(ir)
 
+        #convert to binary
+        red_bits = [(samples[0] >> i) & 1 for i in range(7, -1, -1)] + [(samples[1] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[2] >> i) & 1 for i in range(7, -1, -1)]
+        ir_bits = [(samples[3] >> i) & 1 for i in range(7, -1, -1)] + [(samples[4] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[5] >> i) & 1 for i in range(7, -1, -1)]
+        self.all_red_bits.extend(red_bits)
+        self.all_ir_bits.extend(ir_bits)
+
+        #set binary data
+        self.line_red_dig.set_data(range(len(self.all_red_bits)), self.all_red_bits)
+        self.ax_dig.set_xlim(len(self.all_red_bits) - len(red_bits), len(self.all_red_bits))
+
+        # set data
         xs = range(len(self.red_values))
         self.line_red.set_data(xs, self.red_values)
         self.line_ir.set_data(xs, self.ir_values)
@@ -57,7 +82,7 @@ class PulseOxPlot(PlotManager):
         current_max = max(max(self.red_values), max(self.ir_values))
         self.ax.set_ylim(0, current_max * 1.1)
 
-        return self.line_red, self.line_ir, self.hr_text, self.spo2_text
+        return self.line_red, self.line_ir, self.hr_text, self.spo2_text, self.line_red_dig
     
     def filtered_ir(self, buf):
         return filtfilt(self.b, self.a, np.array(buf))
