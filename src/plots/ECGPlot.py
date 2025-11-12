@@ -1,12 +1,14 @@
+from collections import deque
+
 from .PlotManager import PlotManager
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 try:
     from scipy.signal import find_peaks as scipy_find_peaks
 except ImportError:  # pragma: no cover
     scipy_find_peaks = None
+
 
 class ECGPlot(PlotManager):
     def __init__(self):
@@ -14,11 +16,16 @@ class ECGPlot(PlotManager):
         # Initialize empty data
         self.bpm_values = []
         self.time_values = []
-        self.peak_times = []
-        self.window_duration = 10 
-        self.start_time = None 
+        self.all_peak_times = []
+        self.recent_peak_times = []
+        self.window_duration = 10
+        self.display_window = 10
         self.raw_time = []
         self.raw_samples = []
+        self.display_time = deque()
+        self.display_samples = deque()
+        self.latest_bpm = None
+        self.avg_bpm = None
 
         # Store the sample rate as a global variable
         self.sample_rate = 8192  # This should match the value used in scope.scan_shift()
@@ -32,7 +39,7 @@ class ECGPlot(PlotManager):
         self.line1, = self.ax1.plot([], [], 'r-', label='Heart Signal')
         self.peaks_plot, = self.ax1.plot([], [], 'bo', label='Peaks')
         self.ax1.set_ylabel('Voltage (V)')
-        self.ax1.set_xlabel('Sample Index')
+        self.ax1.set_xlabel('Time (s)')
         self.ax1.set_ylim(-0.15, 0.15)
         self.ax1.grid(True)
         self.ax1.legend()
@@ -59,60 +66,92 @@ class ECGPlot(PlotManager):
 
     def update_plot(self, t_axis, samples):
 
-        if self.start_time is None:
-            self.start_time = time.time()
-        self.raw_time.extend(np.asarray(t_axis).tolist())
-        self.raw_samples.extend(np.asarray(samples).tolist())
+        if len(t_axis) == 0:
+            return self.line1, self.peaks_plot, self.line3_bpm, self.bpm_text
 
-        # Calculate metrics (still need these for debug output)
-        dc = np.average(samples)
-        dcrms = np.sqrt(np.average(samples**2))
-        acrms = np.sqrt(np.average((samples - dc) ** 2))
+        t_axis = np.asarray(t_axis, dtype=float)
+        samples = np.asarray(samples, dtype=float)
 
-        # Update waveform plot
-        x = np.arange(len(samples))
-        self.line1.set_data(x, samples)
+        self.raw_time.extend(t_axis.tolist())
+        self.raw_samples.extend(samples.tolist())
+        self.display_time.extend(t_axis.tolist())
+        self.display_samples.extend(samples.tolist())
 
-        # Detect peaks (heartbeats)
-        peaks, _ = self._find_peaks(samples, height=1.92, distance=200, prominence=0.01)
-    
-        # Plot detected peaks
+        if self.display_time:
+            cutoff = self.display_time[-1] - self.display_window
+            while self.display_time and self.display_time[0] < cutoff:
+                self.display_time.popleft()
+                self.display_samples.popleft()
+
+        # Update waveform plot with time axis
+        time_data = np.array(self.display_time, dtype=float)
+        sample_data = np.array(self.display_samples, dtype=float)
+        if time_data.size > 0:
+            self.line1.set_data(time_data, sample_data)
+            self.ax1.set_xlim(max(0.0, time_data[-1] - self.display_window), time_data[-1])
+            ymin, ymax = np.min(sample_data), np.max(sample_data)
+            padding = max(0.02, 0.1 * (ymax - ymin)) if ymax > ymin else 0.05
+            self.ax1.set_ylim(ymin - padding, ymax + padding)
+
+        # Detect peaks (heartbeats) using dynamic thresholds
+        baseline = float(np.median(samples))
+        dynamic_range = float(np.ptp(samples))
+        height = baseline + max(0.02, 0.45 * dynamic_range)
+        prominence = max(0.01, 0.1 * dynamic_range)
+        min_rr_seconds = 0.25
+        distance = max(1, int(self.sample_rate * min_rr_seconds))
+
+        peaks, _ = self._find_peaks(samples, height=height, distance=distance, prominence=prominence)
+
         if len(peaks) > 0:
-            self.peaks_plot.set_data(peaks, samples[peaks])
+            peak_times = t_axis[peaks]
+            peak_values = samples[peaks]
+            self.peaks_plot.set_data(peak_times, peak_values)
         else:
+            peak_times = np.array([], dtype=float)
             self.peaks_plot.set_data([], [])
 
-        # Calculate heart rate (BPM)
-        current_time = time.time() - self.start_time
-        self.time_values.append(current_time)
+        for peak_time in peak_times:
+            self.all_peak_times.append(float(peak_time))
 
-        # Add newly detected peaks to peak_times
-        for peak_idx in peaks:
-            peak_time = current_time - (len(samples) - peak_idx) / self.sample_rate
-            self.peak_times.append(peak_time)
-
-        # Keep only peaks within the last window_duration seconds
+        current_time = time_data[-1] if time_data.size else 0.0
         cutoff_time = current_time - self.window_duration
-        self.peak_times = [t for t in self.peak_times if t > cutoff_time]
+        recent = [t for t in self.recent_peak_times if t >= cutoff_time]
+        recent.extend(peak_times.tolist())
+        self.recent_peak_times = recent
 
-        # Calculate BPM using RR intervals
-        if len(self.peak_times) > 1:
-            rr_intervals = np.diff(self.peak_times)  # Time differences between consecutive peaks
-            avg_rr = np.mean(rr_intervals) if len(rr_intervals) > 0 else None
-            
+        if current_time is not None:
+            self.time_values.append(current_time)
+
+        bpm = None
+        if len(self.recent_peak_times) > 1:
+            rr_intervals = np.diff(self.recent_peak_times)
+            avg_rr = float(np.mean(rr_intervals)) if len(rr_intervals) > 0 else None
             if avg_rr and avg_rr > 0:
-                bpm = 60 / avg_rr -270  # BPM = 60 / Average RR interval (seconds)
+                bpm = 60.0 / avg_rr
+                self.bpm_values.append(bpm)
             else:
-                bpm = 0
-            
-            self.bpm_values.append(bpm)
+                self.bpm_values.append(np.nan)
+        else:
+            self.bpm_values.append(np.nan)
+
+        finite_bpms = [value for value in self.bpm_values if np.isfinite(value)]
+        if bpm is not None:
+            self.latest_bpm = bpm
             self.bpm_text.set_text(f'BPM: {bpm:.1f}')
         else:
-            self.bpm_values.append(0)
+            self.latest_bpm = None
             self.bpm_text.set_text('BPM: --')
 
-        self.ax1.set_xlim(0, len(samples))
-        self.line3_bpm.set_data(self.time_values, self.bpm_values)
+        self.avg_bpm = float(np.mean(finite_bpms)) if finite_bpms else None
+
+        times = np.array(self.time_values, dtype=float)
+        bpms = np.array(self.bpm_values, dtype=float)
+        self.line3_bpm.set_data(times, bpms)
+        if times.size > 0:
+            min_time = max(0.0, times[-1] - 60)
+            max_time = times[-1] if times[-1] > min_time else min_time + 1
+            self.ax3.set_xlim(min_time, max_time)
 
         return self.line1, self.peaks_plot, self.line3_bpm, self.bpm_text
     
@@ -150,7 +189,7 @@ class ECGPlot(PlotManager):
         guide.set_column(0, 0, 22)
         guide.set_column(1, 1, 95)
         guide.write(0, 0, "Worksheet")
-        guide.write(0, 1, "How to use it - SWITCH BETWEEN TABS AT BOTTOM")
+        guide.write(0, 1, "How to use it")
         guide.write(1, 0, "Heart Rate Trend")
         guide.write(
             1,
@@ -188,7 +227,7 @@ class ECGPlot(PlotManager):
 
         peaks_ws = workbook.add_worksheet("Detected Peaks")
         peaks_ws.write_row(0, 0, ["Peak Timestamp (s)"])
-        for idx, peak_time in enumerate(self.peak_times, start=1):
+        for idx, peak_time in enumerate(self.all_peak_times, start=1):
             peaks_ws.write(idx, 0, peak_time)
 
         raw_ws = workbook.add_worksheet("Raw Signal")

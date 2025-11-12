@@ -15,5 +15,3 @@
 1. new module layout: `src/app/app.py`, `src/app/panels/`, `src/app/datasources/`, reorganizing imports...
 2. Replace `main()` with app & ensure Reaction plot can still launch standalone
 3. sidebar + notebook placeholders
-4. Better Export features
-5. professionalize features, focus on usability and feel

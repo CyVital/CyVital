@@ -205,15 +205,16 @@ class ECGSensorModule(SensorModule):
         else:
             artists_tuple = (artists,)
 
-        valid_bpm = [value for value in self.plot.bpm_values if value > 0]
-        if valid_bpm:
-            latest = valid_bpm[-1]
-            average = mean(valid_bpm)
+        latest = self.plot.latest_bpm
+        average = self.plot.avg_bpm
+        if latest is not None:
             primary = f"{latest:.1f} BPM"
-            secondary = f"{average:.1f} BPM"
+            secondary_value = average if average is not None else latest
+            secondary = f"{secondary_value:.1f} BPM"
             elapsed = self.plot.time_values[-1] if self.plot.time_values else 0.0
             log = (
-                f"Elapsed time: {elapsed:.1f}s | Peaks in window: {len(self.plot.peak_times)}"
+                f"Elapsed time: {elapsed:.1f}s | Peaks in {self.plot.window_duration:.0f}s window: "
+                f"{len(self.plot.recent_peak_times)}"
             )
         else:
             primary = "--"
