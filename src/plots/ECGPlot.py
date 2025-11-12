@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks
 import time
 
-class EMGPlot(PlotManager):
+class ECGPlot(PlotManager):
     def __init__(self):
         # Initialize empty data
         self.bpm_values = []
