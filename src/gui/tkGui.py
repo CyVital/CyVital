@@ -37,6 +37,8 @@ if SRC_ROOT not in sys.path:
 from oscilloscope.FakeScope import FakeScope
 from oscilloscope.Scope import Scope
 from plots.ReactionPlot import ReactionPlot
+from plots.EMGPlot import EMGPlot
+from plots.ECGPlot import ECGPlot
 
 
 COLORS = {
@@ -146,6 +148,84 @@ class ReactionSensorModule(SensorModule):
     def cleanup(self) -> None:
         self.plot._close_plot()
 
+class EMGSensorModule(SensorModule):
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = EMGPlot()
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+
+    def update(self, scope: Scope) -> SensorUpdate:
+        samples = scope.get_emg_samples()
+        t_axis = scope.get_emg_time_axis(samples)
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        return SensorUpdate(
+            primary_value="--",
+            secondary_value="--",
+            log_message= "",
+            artists=artists_tuple,
+        )
+
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"emg_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
+class ECGSensorModule(SensorModule):
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = ECGPlot()
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+
+    def update(self, scope: Scope) -> SensorUpdate:
+        samples = scope.get_ecg_samples()
+        t_axis = None 
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        return SensorUpdate(
+            primary_value="--",
+            secondary_value="--",
+            log_message= "",
+            artists=artists_tuple,
+        )
+
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"emg_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
 
 class MessageSensorModule(SensorModule):
     #onboarding instructions
@@ -186,9 +266,7 @@ DEFAULT_SENSORS = [
         subtitle="Electrocardiogram",
         primary_label="Primary Reading",
         secondary_label="Secondary Reading",
-        module_factory=lambda: MessageSensorModule(
-            "ECG module not wired yet.\nCreate a SensorModule subclass and update DEFAULT_SENSORS."
-        ),
+        module_factory=ECGSensorModule,
     ),
     SensorDefinition(
         key="emg",
@@ -196,9 +274,7 @@ DEFAULT_SENSORS = [
         subtitle="Electromyography",
         primary_label="Primary Reading",
         secondary_label="Secondary Reading",
-        module_factory=lambda: MessageSensorModule(
-            "EMG module not wired yet.\nCreate a SensorModule subclass and update DEFAULT_SENSORS."
-        ),
+        module_factory=EMGSensorModule,
     ),
     SensorDefinition(
         key="pulse",
