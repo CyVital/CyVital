@@ -30,6 +30,7 @@ class PulseOxPlot(PlotManager):
         self.fig, (self.ax_dig, self.ax) = plt.subplots(2, 1, figsize=(10,8))
         
         self.line_red_dig, = self.ax_dig.step([], [], where='mid', label='Red Bits')
+        self.line_ir_dig, = self.ax_dig.step([], [], where='mid', label="IR Bits", linestyle='--')
         self.ax_dig.set_title("Digital Signal")
         self.ax_dig.set_xlabel("Time step")
         self.ax_dig.set_ylabel("Bit Value")
@@ -64,6 +65,8 @@ class PulseOxPlot(PlotManager):
         #set binary data
         self.line_red_dig.set_data(range(len(self.all_red_bits)), self.all_red_bits)
         self.ax_dig.set_xlim(len(self.all_red_bits) - len(red_bits), len(self.all_red_bits))
+        self.line_ir_dig.set_data(range(len(self.all_ir_bits)), self.all_ir_bits)
+        self.ax_dig.set_xlim(len(self.all_ir_bits) - len(ir_bits), len(self.all_ir_bits))
 
         # set data
         xs = range(len(self.red_values))
