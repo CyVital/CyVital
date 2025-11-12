@@ -107,5 +107,12 @@ class ECGPlot(PlotManager):
 
         return self.line1, self.peaks_plot, self.line3_bpm, self.bpm_text
     
+    def on_press(self, event):
+        PlotManager.on_press(self, event, self.ax1)
+
+    def on_release(self, event):
+        PlotManager.on_release(self, event, self.ax1, self.full_time, self.full_samples)
+        self.fig.canvas.draw()
+    
     def _close_plot(self):
         plt.close(self.fig)

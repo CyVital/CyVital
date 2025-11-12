@@ -1,5 +1,7 @@
 import dwfpy as dwf
+from dwfpy.protocols import Protocols
 import numpy as np
+import time
 
 class Scope:
     def __init__(self): #reaction initialization, for now
@@ -10,6 +12,9 @@ class Scope:
         self.emg_buffer_size        = 2048
         self.emg_sample_count = 0
         self.ecg_sample_rate = 8192
+
+        self.MAX_ADDR_7BIT = 0x57
+        self.MAX_ADDR_8BIT = self.MAX_ADDR_7BIT << 1  # 0xAE
 
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
@@ -104,6 +109,49 @@ class Scope:
         self.scope[1].setup(range=0.5)
         self.scope.scan_shift(sample_rate=self.ecg_sample_rate, buffer_size=4096, configure=True, start=True)
 
+    def setup_device_pulse_ox(self):
+
+        self.reset()
+
+        # Power
+        self.device.analog_io[0][1].value = 3.3
+        self.device.analog_io[0][0].value = True
+        self.device.analog_io.master_enable = True
+
+        # I2C
+        self.i2c = Protocols.I2C(self.device)
+        self.i2c.setup(pin_scl=6, pin_sda=7, rate=100_000)
+
+        # Soft reset + mode check
+        self.i2c.write(self.MAX_ADDR_8BIT, bytes([0x09, 0x40]))
+        time.sleep(0.1)
+        self.i2c.write(self.MAX_ADDR_8BIT, bytes([0x09]))
+        mode, nak = self.i2c.read(self.MAX_ADDR_8BIT, 1)
+        print(f"I2C NACK at index {nak}")
+        print(f"MODE_CONFIG readback: 0x{mode[0]:02X}")
+
+        # Configure sensor & FIFO
+        cfg = [
+            (0x09, 0x03), (0x0A, 0x27),
+            (0x0C, 0x24), (0x0D, 0x24),
+            (0x08, 0x00), (0x06, 0x00),
+            (0x07, 0x00), (0x05, 0x00),
+        ]
+        for reg, val in cfg:
+            self.i2c.write(self.MAX_ADDR_8BIT, bytes([reg, val]))
+        time.sleep(0.2)
+    
+    def get_pulse_ox_samples(self):
+        samples, nak = self.i2c.write_read(self.MAX_ADDR_8BIT, bytes([0x07]), 6)
+        if nak == 0:
+            red = ((samples[0]<<16)|(samples[1]<<8)|samples[2]) & 0x03FFFF
+            ir  = ((samples[3]<<16)|(samples[4]<<8)|samples[5]) & 0x03FFFF
+        else:
+            print(f"I2C NACK at index {nak}")
+            return None, None
+
+        return red, ir
+    
     def reset(self):
         self.device.digital_io.reset()
         self.device.digital_io.configure()
