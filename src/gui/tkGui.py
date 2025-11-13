@@ -266,10 +266,21 @@ class PulseOxSensorModule(SensorModule):
         else:
             artists_tuple = (artists,)
 
+        if self.plot.bpm and self.plot.spo2:
+            primary = f"{self.plot.spo2:.1f} %"
+            secondary = f"{self.plot.bpm:.0f} bpm"
+            log = (
+                f"bpm and spo2"
+            )
+        else:
+            primary = "--"
+            secondary = "--"
+            log = "Waiting for first pulse ox sample"
+
         return SensorUpdate(
-            primary_value="--",
-            secondary_value="--",
-            log_message= "",
+            primary_value=primary,
+            secondary_value=secondary,
+            log_message= log,
             artists=artists_tuple,
         )
 

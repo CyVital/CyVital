@@ -61,8 +61,8 @@ class PulseOxPlot(PlotManager):
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
         # Text placeholders (to be put in base gui)
-        self.hr_text   = self.ax.text(0.02, 0.95, "", transform=self.ax.transAxes)
-        self.spo2_text = self.ax.text(0.02, 0.90, "", transform=self.ax.transAxes)
+        # self.hr_text   = self.ax.text(0.02, 0.95, "", transform=self.ax.transAxes)
+        # self.spo2_text = self.ax.text(0.02, 0.90, "", transform=self.ax.transAxes)
     
     def update_plot(self, time_axis, samples):
         red = ((samples[0]<<16)|(samples[1]<<8)|samples[2]) & 0x03FFFF
@@ -92,14 +92,14 @@ class PulseOxPlot(PlotManager):
         self.bpm     = self.smooth_bpm(raw_bpm)
         self.spo2    = self.estimate_spo2(self.red_values, self.ir_values)
 
-        self.hr_text.set_text(f"HR: {self.bpm:.0f} bpm" if self.bpm else "HR: -- bpm")
-        self.spo2_text.set_text(f"SpO₂: {self.spo2:.1f} %" if self.spo2 else "SpO₂: -- %")
+        # self.hr_text.set_text(f"HR: {self.bpm:.0f} bpm" if self.bpm else "HR: -- bpm")
+        # self.spo2_text.set_text(f"SpO₂: {self.spo2:.1f} %" if self.spo2 else "SpO₂: -- %")
 
         # rescale y
         current_max = max(max(self.red_values), max(self.ir_values))
         self.ax.set_ylim(0, current_max * 1.1)
 
-        return self.line_red, self.line_ir, self.hr_text, self.spo2_text, self.line_red_dig
+        return self.line_red, self.line_ir, self.line_red_dig
     
     def filtered_ir(self, buf):
         return filtfilt(self.b, self.a, np.array(buf))
