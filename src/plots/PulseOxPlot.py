@@ -39,6 +39,7 @@ class PulseOxPlot(PlotManager):
         self.ax_dig.set_ylabel("Bit Value")
         self.ax_dig.set_xlim(0, self.window_size)
         self.ax_dig.set_ylim(0, 1.1)
+        self.ax_dig.grid(True)
         
         self.line_red, = self.ax.plot([], [], label='Red')
         self.line_ir,  = self.ax.plot([], [], label='IR')
@@ -48,6 +49,16 @@ class PulseOxPlot(PlotManager):
         self.ax.set_xlim(0, self.window_size)
         self.ax.set_ylim(0, 100000)
         self.ax.legend(loc='upper right')
+        self.ax.grid(True)
+
+        self.cursor = Cursor(self.ax, useblit=True, color='red', linewidth=1)
+        self.zoom = self.zoom_around_cursor(self.ax_dig)
+        self.zoom2 = self.zoom_around_cursor(self.ax)
+        self.pan_handler = panhandler(self.fig)
+
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
         # Text placeholders (to be put in base gui)
         self.hr_text   = self.ax.text(0.02, 0.95, "", transform=self.ax.transAxes)
@@ -78,11 +89,11 @@ class PulseOxPlot(PlotManager):
 
         # compute vitals
         raw_bpm = self.estimate_bpm(self.ir_values)
-        bpm     = self.smooth_bpm(raw_bpm)
-        spo2    = self.estimate_spo2(self.red_values, self.ir_values)
+        self.bpm     = self.smooth_bpm(raw_bpm)
+        self.spo2    = self.estimate_spo2(self.red_values, self.ir_values)
 
-        self.hr_text.set_text(f"HR: {bpm:.0f} bpm" if bpm else "HR: -- bpm")
-        self.spo2_text.set_text(f"SpO₂: {spo2:.1f} %" if spo2 else "SpO₂: -- %")
+        self.hr_text.set_text(f"HR: {self.bpm:.0f} bpm" if self.bpm else "HR: -- bpm")
+        self.spo2_text.set_text(f"SpO₂: {self.spo2:.1f} %" if self.spo2 else "SpO₂: -- %")
 
         # rescale y
         current_max = max(max(self.red_values), max(self.ir_values))
