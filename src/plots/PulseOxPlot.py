@@ -3,9 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import deque
 from scipy.signal import butter, filtfilt, find_peaks
+from matplotlib.widgets import Cursor
+from mpl_interactions import ioff, panhandler
 
 class PulseOxPlot(PlotManager):
     def __init__(self):
+        super().__init__()
         self.window_size = 100
         self.fs = 10  # sampling rate (Hz)
         self.min_peak_distance = int(0.5 * self.fs)  
@@ -123,7 +126,7 @@ class PulseOxPlot(PlotManager):
         PlotManager.on_press(self, event, self.ax)
 
     def on_release(self, event):
-        PlotManager.on_release(self, event, self.ax, self.full_time, self.full_samples)
+        PlotManager.on_release(self, event, self.ax, self.time, self.red_values)
         self.fig.canvas.draw()
     
     def _close_plot(self):

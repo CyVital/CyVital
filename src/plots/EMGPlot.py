@@ -5,9 +5,12 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from scipy.signal import butter, lfilter
 from PlotManager import PlotManager
+from matplotlib.widgets import Cursor
+from mpl_interactions import ioff, panhandler
 
 class EMGPlot(PlotManager):
     def __init__(self):
+        super().__init__()
         # globals
         self.sample_rate        = 4000
         self.buffer_size        = 2048
@@ -36,6 +39,16 @@ class EMGPlot(PlotManager):
         self.ax_env.set_xlabel("Time (s)")
         self.ax_env.grid(True)
 
+        self.cursor = Cursor(self.ax_raw, useblit=True, color='red', linewidth=1)
+        self.cursor2 = Cursor(self.ax_env, useblit=True, color='red', linewidth=1)
+        self.zoom = self.zoom_around_cursor(self.ax_raw)
+        self.zoom2 = self.zoom_around_cursor(self.ax_env)
+        self.pan_handler = panhandler(self.fig)
+
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+
     def update_plot(self, t_axis, samples):
 
         filt = self._bandpass_filter(samples, self.sample_rate)
@@ -54,6 +67,13 @@ class EMGPlot(PlotManager):
         self.ax_env.set_xlim(self.env_time_vals[0], self.env_time_vals[-1])
 
         return self.line_raw, self.line_env
+    
+    def on_press(self, event):
+        PlotManager.on_press(self, event, self.ax_raw)
+
+    def on_release(self, event):
+        PlotManager.on_release(self, event, self.ax_raw, self.raw_time_vals, self.raw_vals)
+        self.fig.canvas.draw()
     
     def _close_plot(self):
         plt.close(self.fig)

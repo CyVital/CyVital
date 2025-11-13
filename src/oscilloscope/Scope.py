@@ -72,7 +72,9 @@ class Scope:
         t_axis  = np.arange(len(samples)) / self.emg_sample_rate + t_start
         self.emg_sample_count += len(samples)
         return t_axis
-
+    
+    def get_ecg_time_axis(self, samples):
+        return np.linspace(0, len(samples) / self.ecg_sample_rate, len(samples))
 
     def get_reaction_time_axis(self, samples):
         return np.linspace(self.reaction_signal_time - len(samples) / self.reaction_sample_rate, self.reaction_signal_time, len(samples))

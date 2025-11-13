@@ -10,6 +10,7 @@ from PlotManager import PlotManager
 
 class ReactionPlot(PlotManager):
     def __init__(self):
+        super().__init__()
         self.sample_rate = 10000
         self.threshold_voltage = 2
 

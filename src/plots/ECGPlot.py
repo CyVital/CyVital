@@ -3,13 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks
 import time
+from matplotlib.widgets import Cursor
+from mpl_interactions import ioff, panhandler
 
 class ECGPlot(PlotManager):
     def __init__(self):
+        super().__init__()
         # Initialize empty data
         self.bpm_values = []
         self.time_values = []
         self.peak_times = []
+        self.raw_time_vals = []
+        self.raw_vals = []
         self.window_duration = 10 
         self.start_time = None 
 
@@ -44,6 +49,17 @@ class ECGPlot(PlotManager):
         self.ax1.minorticks_on()
         self.ax3.minorticks_on()
 
+        #Graph interactions
+        self.cursor = Cursor(self.ax1, useblit=True, color='red', linewidth=1)
+        self.cursor2 = Cursor(self.ax3, useblit=True, color='red', linewidth=1)
+        self.zoom = self.zoom_around_cursor(self.ax1)
+        self.zoom = self.zoom_around_cursor(self.ax3)
+        self.pan_handler = panhandler(self.fig)
+
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+
         # Add BPM text display (to be transitioned to tkinter gui?)
         self.bpm_text = self.ax3.text(0.02, 0.9, 'BPM: --', transform=self.ax3.transAxes, 
                     fontsize=14, fontweight='bold', color='green',
@@ -52,6 +68,9 @@ class ECGPlot(PlotManager):
 
     def update_plot(self, t_axis, samples):
 
+        self.raw_time_vals.extend(t_axis)
+        self.raw_vals.extend(samples)
+        
         if self.start_time is None:
             self.start_time = time.time()
 
@@ -111,7 +130,7 @@ class ECGPlot(PlotManager):
         PlotManager.on_press(self, event, self.ax1)
 
     def on_release(self, event):
-        PlotManager.on_release(self, event, self.ax1, self.full_time, self.full_samples)
+        PlotManager.on_release(self, event, self.ax1, self.raw_time_vals, self.raw_vals)
         self.fig.canvas.draw()
     
     def _close_plot(self):

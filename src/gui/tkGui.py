@@ -212,7 +212,7 @@ class ECGSensorModule(SensorModule):
 
     def update(self, scope: Scope) -> SensorUpdate:
         samples = scope.get_ecg_samples()
-        t_axis = None 
+        t_axis = scope.get_ecg_time_axis(samples) 
 
         artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
