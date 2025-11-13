@@ -39,6 +39,7 @@ from oscilloscope.Scope import Scope
 from plots.ReactionPlot import ReactionPlot
 from plots.EMGPlot import EMGPlot
 from plots.ECGPlot import ECGPlot
+from plots.PulseOxPlot import PulseOxPlot
 
 
 COLORS = {
@@ -78,6 +79,9 @@ class SensorModule:
         #Return a Matplotlib figure to embed in graph
         return None
 
+    def setup_scope(self, scope: Scope) -> None:
+        pass
+    
     def get_placeholder_message(self) -> Optional[str]:
         #Return a when no data
         return None
@@ -101,6 +105,9 @@ class ReactionSensorModule(SensorModule):
 
     def __init__(self) -> None:
         self.plot = ReactionPlot()
+    
+    def setup_scope(self, scope: Scope) -> None:
+        scope.setup_device_reaction()
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -157,6 +164,9 @@ class EMGSensorModule(SensorModule):
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
+    
+    def setup_scope(self, scope: Scope) -> None:
+        scope.setup_device_emg()
 
     def update(self, scope: Scope) -> SensorUpdate:
         samples = scope.get_emg_samples()
@@ -194,12 +204,15 @@ class ECGSensorModule(SensorModule):
     def __init__(self) -> None:
         self.plot = ECGPlot()
 
+    def setup_scope(self, scope: Scope) -> None:
+        scope.setup_device_ecg()
+    
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
     def update(self, scope: Scope) -> SensorUpdate:
         samples = scope.get_ecg_samples()
-        t_axis = None 
+        t_axis = scope.get_ecg_time_axis(samples) 
 
         artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
@@ -220,7 +233,60 @@ class ECGSensorModule(SensorModule):
 
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_str = f"emg_data_{timestamp}.xlsx"
+        file_str = f"ecg_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
+class PulseOxSensorModule(SensorModule):
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = PulseOxPlot()
+
+    def setup_scope(self, scope: Scope) -> None:
+        scope.setup_device_pulse_ox()
+    
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+
+    def update(self, scope: Scope) -> SensorUpdate:
+        samples = scope.get_pulse_ox_samples()
+        t_axis = scope.get_pulse_ox_time_axis()
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        if self.plot.bpm and self.plot.spo2:
+            primary = f"{self.plot.spo2:.1f} %"
+            secondary = f"{self.plot.bpm:.0f} bpm"
+            log = (
+                f"bpm and spo2"
+            )
+        else:
+            primary = "--"
+            secondary = "--"
+            log = "Waiting for first pulse ox sample"
+
+        return SensorUpdate(
+            primary_value=primary,
+            secondary_value=secondary,
+            log_message= log,
+            artists=artists_tuple,
+        )
+
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"pulse_ox_data_{timestamp}.xlsx"
         return self.plot.save_data(file_str)
 
     def cleanup(self) -> None:
@@ -282,9 +348,7 @@ DEFAULT_SENSORS = [
         subtitle="Blood Oxygen",
         primary_label="SpO₂",
         secondary_label="Pulse",
-        module_factory=lambda: MessageSensorModule(
-            "Pulse Oximeter module not wired yet.\nCreate a SensorModule subclass and update DEFAULT_SENSORS."
-        ),
+        module_factory=PulseOxSensorModule,
     ),
 ]
 
@@ -621,6 +685,8 @@ class CyVitalApp:
 
         self.current_sensor_key = key
         self.current_module = definition.module_factory()
+
+        self.current_module.setup_scope(self.scope)
 
         for nav_key, nav_item in self.nav_items.items():
             nav_item.set_active(nav_key == key)
