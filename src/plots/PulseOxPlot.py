@@ -18,8 +18,7 @@ class PulseOxPlot(PlotManager):
         self.red_values = deque([0]*self.window_size, maxlen=self.window_size)
         self.ir_values  = deque([0]*self.window_size, maxlen=self.window_size)
 
-        self.all_red_bits = []
-        self.all_ir_bits = []
+        self.all_bits = []
 
 
         # --- Band‑pass filter design ---
@@ -33,7 +32,6 @@ class PulseOxPlot(PlotManager):
         self.fig, (self.ax_dig, self.ax) = plt.subplots(2, 1, figsize=(10,8))
         
         self.line_red_dig, = self.ax_dig.step([], [], where='mid', label='Red Bits')
-        self.line_ir_dig, = self.ax_dig.step([], [], where='mid', label="IR Bits", linestyle='--')
         self.ax_dig.set_title("Digital Signal")
         self.ax_dig.set_xlabel("Time step")
         self.ax_dig.set_ylabel("Bit Value")
@@ -56,13 +54,9 @@ class PulseOxPlot(PlotManager):
         self.zoom2 = self.zoom_around_cursor(self.ax)
         self.pan_handler = panhandler(self.fig)
 
-        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
-        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
-        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
-
-        # Text placeholders (to be put in base gui)
-        # self.hr_text   = self.ax.text(0.02, 0.95, "", transform=self.ax.transAxes)
-        # self.spo2_text = self.ax.text(0.02, 0.90, "", transform=self.ax.transAxes)
+        # self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        # self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        # self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
     
     def update_plot(self, time_axis, samples):
         red = ((samples[0]<<16)|(samples[1]<<8)|samples[2]) & 0x03FFFF
@@ -71,16 +65,12 @@ class PulseOxPlot(PlotManager):
         self.ir_values.append(ir)
 
         #convert to binary
-        red_bits = [(samples[0] >> i) & 1 for i in range(7, -1, -1)] + [(samples[1] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[2] >> i) & 1 for i in range(7, -1, -1)]
-        ir_bits = [(samples[3] >> i) & 1 for i in range(7, -1, -1)] + [(samples[4] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[5] >> i) & 1 for i in range(7, -1, -1)]
-        self.all_red_bits.extend(red_bits)
-        self.all_ir_bits.extend(ir_bits)
+        bits = [(samples[0] >> i) & 1 for i in range(7, -1, -1)] + [(samples[1] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[2] >> i) & 1 for i in range(7, -1, -1)] + [(samples[3] >> i) & 1 for i in range(7, -1, -1)] + [(samples[4] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[5] >> i) & 1 for i in range(7, -1, -1)]
+        self.all_bits.extend(bits)
 
         #set binary data
-        self.line_red_dig.set_data(range(len(self.all_red_bits)), self.all_red_bits)
-        self.ax_dig.set_xlim(len(self.all_red_bits) - len(red_bits), len(self.all_red_bits))
-        self.line_ir_dig.set_data(range(len(self.all_ir_bits)), self.all_ir_bits)
-        self.ax_dig.set_xlim(len(self.all_ir_bits) - len(ir_bits), len(self.all_ir_bits))
+        self.line_red_dig.set_data(range(len(self.all_bits)), self.all_bits)
+        self.ax_dig.set_xlim(len(self.all_bits) - len(bits), len(self.all_bits))
 
         # set data
         xs = range(len(self.red_values))
@@ -91,9 +81,6 @@ class PulseOxPlot(PlotManager):
         raw_bpm = self.estimate_bpm(self.ir_values)
         self.bpm     = self.smooth_bpm(raw_bpm)
         self.spo2    = self.estimate_spo2(self.red_values, self.ir_values)
-
-        # self.hr_text.set_text(f"HR: {self.bpm:.0f} bpm" if self.bpm else "HR: -- bpm")
-        # self.spo2_text.set_text(f"SpO₂: {self.spo2:.1f} %" if self.spo2 else "SpO₂: -- %")
 
         # rescale y
         current_max = max(max(self.red_values), max(self.ir_values))
