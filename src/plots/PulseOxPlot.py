@@ -5,6 +5,7 @@ from collections import deque
 from scipy.signal import butter, filtfilt, find_peaks
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
+import matplotlib.ticker as plticker
 
 class PulseOxPlot(PlotManager):
     def __init__(self):
@@ -17,6 +18,8 @@ class PulseOxPlot(PlotManager):
         # --- Buffers ---
         self.red_values = deque([0]*self.window_size, maxlen=self.window_size)
         self.ir_values  = deque([0]*self.window_size, maxlen=self.window_size)
+        self.all_red_values = []
+        self.all_ir_values = []
 
         self.all_bits = []
 
@@ -37,7 +40,9 @@ class PulseOxPlot(PlotManager):
         self.ax_dig.set_ylabel("Bit Value")
         self.ax_dig.set_xlim(0, self.window_size)
         self.ax_dig.set_ylim(0, 1.1)
-        self.ax_dig.grid(True)
+        self.ax_dig.xaxis.set_major_locator(plticker.MultipleLocator(base=8))
+        self.ax_dig.yaxis.set_major_locator(plticker.MultipleLocator(base=1))
+        self.ax_dig.grid(which='major', axis='both', linestyle='-', linewidth=0.5, color='gray')
         
         self.line_red, = self.ax.plot([], [], label='Red')
         self.line_ir,  = self.ax.plot([], [], label='IR')
@@ -63,6 +68,8 @@ class PulseOxPlot(PlotManager):
         ir  = ((samples[3]<<16)|(samples[4]<<8)|samples[5]) & 0x03FFFF
         self.red_values.append(red)
         self.ir_values.append(ir)
+        self.all_red_values.append(red)
+        self.all_ir_values.append(ir)
 
         #convert to binary
         bits = [(samples[0] >> i) & 1 for i in range(7, -1, -1)] + [(samples[1] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[2] >> i) & 1 for i in range(7, -1, -1)] + [(samples[3] >> i) & 1 for i in range(7, -1, -1)] + [(samples[4] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[5] >> i) & 1 for i in range(7, -1, -1)]
@@ -73,9 +80,9 @@ class PulseOxPlot(PlotManager):
         self.ax_dig.set_xlim(len(self.all_bits) - len(bits), len(self.all_bits))
 
         # set data
-        xs = range(len(self.red_values))
-        self.line_red.set_data(xs, self.red_values)
-        self.line_ir.set_data(xs, self.ir_values)
+        # xs = range(len(self.red_values))
+        self.line_red.set_data(time_axis, self.all_red_values)
+        self.line_ir.set_data(time_axis, self.all_ir_values)
 
         # compute vitals
         raw_bpm = self.estimate_bpm(self.ir_values)
@@ -85,6 +92,9 @@ class PulseOxPlot(PlotManager):
         # rescale y
         current_max = max(max(self.red_values), max(self.ir_values))
         self.ax.set_ylim(0, current_max * 1.1)
+
+        #rescale x
+        self.ax.set_xlim(time_axis[-1] - len(self.red_values), time_axis[-1])
 
         return self.line_red, self.line_ir, self.line_red_dig
     

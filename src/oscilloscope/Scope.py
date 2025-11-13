@@ -12,6 +12,7 @@ class Scope:
         self.emg_buffer_size        = 2048
         self.emg_sample_count = 0
         self.ecg_sample_rate = 8192
+        self.pulse_ox_sample_count = 0
 
         self.MAX_ADDR_7BIT = 0x57
         self.MAX_ADDR_8BIT = self.MAX_ADDR_7BIT << 1  # 0xAE
@@ -146,12 +147,15 @@ class Scope:
     def get_pulse_ox_samples(self):
         samples, nak = self.i2c.write_read(self.MAX_ADDR_8BIT, bytes([0x07]), 6)
         if nak == 0:
-            pass
+            self.pulse_ox_sample_count += 1
         else:
             print(f"I2C NACK at index {nak}")
             return None
 
         return samples
+    
+    def get_pulse_ox_time_axis(self):
+        return np.linspace(0, self.pulse_ox_sample_count, self.pulse_ox_sample_count)
     
     def reset(self):
         self.device.digital_io.reset()

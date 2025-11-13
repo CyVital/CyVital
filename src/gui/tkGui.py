@@ -254,9 +254,9 @@ class PulseOxSensorModule(SensorModule):
 
     def update(self, scope: Scope) -> SensorUpdate:
         samples = scope.get_pulse_ox_samples()
+        t_axis = scope.get_pulse_ox_time_axis()
 
-
-        artists = self.plot.update_plot(None, samples)
+        artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
             artists_tuple: Tuple[object, ...] = tuple()
         elif isinstance(artists, tuple):
