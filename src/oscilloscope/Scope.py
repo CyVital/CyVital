@@ -11,6 +11,9 @@ class Scope:
         self.emg_sample_count = 0
         self.ecg_sample_rate = 8192
         self.ecg_signal_time = 0.0
+        self.resp_sample_rate = 200
+        self.resp_buffer_size = 2048
+        self.resp_signal_time = 0.0
 
         self.device = dwf.Device()
         print(f"Connected to {self.device.name} ({self.device.serial_number})")
@@ -70,6 +73,19 @@ class Scope:
             self.ecg_signal_time,
             len(samples),
         )
+
+    def get_respiratory_samples(self):
+        self.scope.read_status(read_data=True)
+        samples = np.array(self.scope.channels[0].get_data())
+        self.resp_signal_time += len(samples) / self.resp_sample_rate
+        return samples
+
+    def get_respiratory_time_axis(self, samples):
+        return np.linspace(
+            self.resp_signal_time - len(samples) / self.resp_sample_rate,
+            self.resp_signal_time,
+            len(samples),
+        )
     
     def get_emg_time_axis(self, samples):
         t_start = self.emg_sample_count / self.emg_sample_rate
@@ -112,6 +128,20 @@ class Scope:
         self.scope[0].setup(range=0.5)
         self.scope[1].setup(range=0.5)
         self.scope.scan_shift(sample_rate=self.ecg_sample_rate, buffer_size=4096, configure=True, start=True)
+
+    def setup_device_respiratory(self):
+        self.setup_device_analog()
+        self.device.digital_io.reset()
+        self.device.digital_io.configure()
+
+        self.scope = self.device.analog_input
+        self.scope[0].setup(range=5.0)
+        self.scope.scan_shift(
+            sample_rate=self.resp_sample_rate,
+            buffer_size=self.resp_buffer_size,
+            configure=True,
+            start=True,
+        )
 
     def reset(self):
         self.device.digital_io.reset()
