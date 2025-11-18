@@ -52,9 +52,9 @@ class ReactionPlot(PlotManager):
         self.fig.canvas.mpl_connect('button_release_event', self.on_release)
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
-        self.selection_start = 0
-        self.selection_rect = None
-        self.selection_end = 0
+        # self.selection_start = 0
+        # self.selection_rect = None
+        # self.selection_end = 0
 
     def update_plot(self, t_axis, samples):
 
