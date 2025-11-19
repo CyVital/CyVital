@@ -14,6 +14,10 @@ class Scope:
         self.ecg_sample_rate = 8192
         self.pulse_ox_sample_count = 0
 
+        #blood pressure???
+        self.blood_pressure_sample_count = 0
+        self.blood_pressure_sample_rate = 4000
+
         self.MAX_ADDR_7BIT = 0x57
         self.MAX_ADDR_8BIT = self.MAX_ADDR_7BIT << 1  # 0xAE
 
@@ -68,10 +72,21 @@ class Scope:
         new_samples = np.array(self.scope.channels[0].get_data())
         return new_samples
     
+    def get_blood_pressure_samples(self):
+        self.scope.read_status(read_data=True)
+        new_samples = np.array(self.scope.channels[0].get_data())
+        return new_samples
+    
     def get_emg_time_axis(self, samples):
         t_start = self.emg_sample_count / self.emg_sample_rate
         t_axis  = np.arange(len(samples)) / self.emg_sample_rate + t_start
         self.emg_sample_count += len(samples)
+        return t_axis
+    
+    def get_blood_pressure_time_axis(self, samples):
+        t_start = self.blood_pressure_sample_count / self.blood_pressure_sample_rate
+        t_axis  = np.arange(len(samples)) / self.blood_pressure_sample_rate + t_start
+        self.blood_pressure_sample_count += len(samples)
         return t_axis
     
     def get_ecg_time_axis(self, samples):

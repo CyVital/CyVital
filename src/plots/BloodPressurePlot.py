@@ -15,6 +15,9 @@ class BloodPressurePlot(PlotManager):\
         self.raw_volts = []
         self.pressures = []
 
+        # the slope to turn volts to pressure
+        self.m = 1
+
         self._setup_plot()
 
     def _setup_plot(self):
@@ -42,7 +45,17 @@ class BloodPressurePlot(PlotManager):\
         self.fig.canvas.mpl_connect('button_release_event', self.on_release)
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
+    def update_plot(self, t_axis, samples):
+        self.full_times.extend(t_axis)
+        self.raw_volts.extend(samples)
+        new_pressures = self._calc_pressure(samples)
+        self.pressures.extend(new_pressures)
 
+        self.line_raw.set_data(self.full_times, self.raw_volts)
+        self.line_pressure.set_data(self.full_times, self.pressures)
+
+        return self.line_raw, self.line_pressure
+    
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax_raw)
 
@@ -52,3 +65,9 @@ class BloodPressurePlot(PlotManager):\
 
     def _close_plot(self):
         plt.close(self.fig)
+
+    def _calc_pressure(self, samples):
+        pressure_samples = []
+        for sample in samples:
+            pressure_samples.append(sample * self.m)
+        return pressure_samples
