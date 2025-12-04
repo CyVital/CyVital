@@ -41,6 +41,8 @@ if SRC_ROOT not in sys.path:
 from oscilloscope.FakeScope import FakeScope
 from oscilloscope.Scope import Scope
 from plots.ECGPlot import ECGPlot
+from plots.EMGPlot import EMGPlot
+from plots.PulseOxPlot import PulseOxPlot
 from plots.ReactionPlot import ReactionPlot
 from plots.RespiratoryPlot import RespiratoryPlot
 
@@ -336,6 +338,137 @@ class RespiratorySensorModule(SensorModule):
         self.plot._close_plot()
 
 
+class EMGSensorModule(SensorModule):
+    """Streams EMG samples and renders the EMG plot."""
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = EMGPlot()
+        self._configured = False
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+
+    def fetch_data(self, scope: Scope) -> Optional[Dict[str, Any]]:
+        if not self._configured:
+            setup_fn = getattr(scope, "setup_device_emg", None)
+            if callable(setup_fn):
+                setup_fn()
+            self._configured = True
+
+        samples = scope.get_emg_samples()
+        if hasattr(scope, "get_emg_time_axis"):
+            t_axis = scope.get_emg_time_axis(samples)
+        else:
+            sample_rate = getattr(self.plot, "sample_rate", 1) or 1
+            t_axis = np.arange(len(samples)) / sample_rate
+        return {"samples": samples, "t_axis": t_axis}
+
+    def process_data(self, data: Optional[Dict[str, Any]]) -> SensorUpdate:
+        if not data:
+            return SensorUpdate()
+        samples = data.get("samples")
+        t_axis = data.get("t_axis")
+        if samples is None or t_axis is None:
+            return SensorUpdate()
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        log = "Streaming EMG signal" if samples is not None else "Waiting for EMG signal"
+        return SensorUpdate(
+            primary_value="--",
+            secondary_value="--",
+            log_message=log,
+            artists=artists_tuple,
+        )
+
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"emg_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
+
+class PulseOxSensorModule(SensorModule):
+    """Streams pulse oximeter samples and exposes SpO2/BPM metrics."""
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = PulseOxPlot()
+        self._configured = False
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+
+    def fetch_data(self, scope: Scope) -> Optional[Dict[str, Any]]:
+        if not self._configured:
+            setup_fn = getattr(scope, "setup_device_pulse_ox", None)
+            if callable(setup_fn):
+                setup_fn()
+            self._configured = True
+
+        samples = scope.get_pulse_ox_samples()
+        t_axis_fn = getattr(scope, "get_pulse_ox_time_axis", None)
+        t_axis = t_axis_fn() if callable(t_axis_fn) else np.arange(len(samples))
+        return {"samples": samples, "t_axis": t_axis}
+
+    def process_data(self, data: Optional[Dict[str, Any]]) -> SensorUpdate:
+        if not data:
+            return SensorUpdate()
+        samples = data.get("samples")
+        t_axis = data.get("t_axis")
+        if samples is None or t_axis is None:
+            return SensorUpdate()
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        spo2 = getattr(self.plot, "spo2", None)
+        bpm = getattr(self.plot, "bpm", None)
+        if spo2 is not None and bpm is not None:
+            primary = f"{spo2:.1f} %"
+            secondary = f"{bpm:.0f} BPM"
+            log = "Tracking blood oxygen saturation"
+        else:
+            primary = "--"
+            secondary = "--"
+            log = "Waiting for pulse oximeter data"
+
+        return SensorUpdate(
+            primary_value=primary,
+            secondary_value=secondary,
+            log_message=log,
+            artists=artists_tuple,
+        )
+
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"pulse_ox_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
+
 class MessageSensorModule(SensorModule):
     #onboarding instructions
 
@@ -391,9 +524,7 @@ DEFAULT_SENSORS = [
         subtitle="Electromyography",
         primary_label="Primary Reading",
         secondary_label="Secondary Reading",
-        module_factory=lambda: MessageSensorModule(
-            "EMG module not wired yet.\nCreate a SensorModule subclass and update DEFAULT_SENSORS."
-        ),
+        module_factory=EMGSensorModule,
     ),
     SensorDefinition(
         key="pulse",
@@ -401,9 +532,7 @@ DEFAULT_SENSORS = [
         subtitle="Blood Oxygen",
         primary_label="SpO₂",
         secondary_label="Pulse",
-        module_factory=lambda: MessageSensorModule(
-            "Pulse Oximeter module not wired yet.\nCreate a SensorModule subclass and update DEFAULT_SENSORS."
-        ),
+        module_factory=PulseOxSensorModule,
     ),
 ]
 
