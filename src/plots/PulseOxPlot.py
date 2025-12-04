@@ -2,7 +2,12 @@ from PlotManager import PlotManager
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import deque
-from scipy.signal import butter, filtfilt, find_peaks
+try:
+    from scipy.signal import butter, filtfilt, find_peaks
+except ImportError:  # fallback when SciPy missing
+    butter = None
+    filtfilt = None
+    find_peaks = None
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
 import matplotlib.ticker as plticker
@@ -14,6 +19,7 @@ class PulseOxPlot(PlotManager):
         self.fs = 10  # sampling rate (Hz)
         self.min_peak_distance = int(0.5 * self.fs)  
         self.bpm_hist = deque(maxlen=5) 
+        self._scipy_warned = False
 
         # --- Buffers ---
         self.red_values = deque([0]*self.window_size, maxlen=self.window_size)
@@ -24,10 +30,13 @@ class PulseOxPlot(PlotManager):
         self.all_bits = []
 
 
-        # --- Band‑pass filter design ---
+        # --- Band-pass filter design ---
         self.lowcut, self.highcut = 0.7, 4.0  # Hz
         self.nyq = self.fs / 2.0
-        self.b, self.a = butter(2, [self.lowcut/self.nyq, self.highcut/self.nyq], btype='band')
+        if butter is not None:
+            self.b, self.a = butter(2, [self.lowcut/self.nyq, self.highcut/self.nyq], btype='band')
+        else:
+            self.b, self.a = None, None
 
         self._setup_plot()
 
@@ -99,9 +108,16 @@ class PulseOxPlot(PlotManager):
         return self.line_red, self.line_ir, self.line_red_dig
     
     def filtered_ir(self, buf):
+        if self.b is None or self.a is None or filtfilt is None:
+            if not self._scipy_warned:
+                print("[PulseOxPlot] SciPy not installed; running without filtering or BPM estimation.")
+                self._scipy_warned = True
+            return np.asarray(buf, dtype=float)
         return filtfilt(self.b, self.a, np.array(buf))
     
     def estimate_bpm(self, ir_buf):
+        if find_peaks is None or butter is None or filtfilt is None:
+            return None
         x = self.filtered_ir(ir_buf)
         # require peaks with some prominence to avoid noise
         prom = np.std(x) * 0.5

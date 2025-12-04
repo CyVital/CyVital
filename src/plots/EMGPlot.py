@@ -3,7 +3,11 @@ import numpy as np
 import dwfpy as dwf
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from scipy.signal import butter, lfilter
+try:
+    from scipy.signal import butter, lfilter
+except ImportError:  # pragma: no cover - optional dependency
+    butter = None
+    lfilter = None
 from PlotManager import PlotManager
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
@@ -21,6 +25,7 @@ class EMGPlot(PlotManager):
         self.sample_count = 0
 
         self._setup_plot()
+        self._scipy_warned = False
 
     def _setup_plot(self):
         # Plot set-up
@@ -81,11 +86,20 @@ class EMGPlot(PlotManager):
 
     # ── FILTER HELPERS ────────────────────────────────────────────────────────────
     def _butter_bandpass(self, fs, order=4):
+        if butter is None:
+            if not self._scipy_warned:
+                print(
+                    "[EMGPlot] SciPy not installed; EMG stream running without band-pass filtering."
+                )
+                self._scipy_warned = True
+            return None, None
         nyq = 0.5 * fs
         return butter(order, [self.lowcut/nyq, self.highcut/nyq], btype="band")
 
     def _bandpass_filter(self, data, fs, order=4):
         b, a = self._butter_bandpass(fs, order)
+        if b is None or a is None or lfilter is None:
+            return np.asarray(data)
         return lfilter(b, a, data)
 
     def _moving_average(self, data):
