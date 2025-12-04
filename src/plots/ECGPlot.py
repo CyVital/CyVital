@@ -24,6 +24,8 @@ class ECGPlot(PlotManager):
         self.raw_samples = []
         self.display_time = deque()
         self.display_samples = deque()
+        self.max_display_points = 1200
+        self.max_rate_points = 400
         self.latest_bpm = None
         self.avg_bpm = None
 
@@ -86,8 +88,14 @@ class ECGPlot(PlotManager):
         # Update waveform plot with time axis
         time_data = np.array(self.display_time, dtype=float)
         sample_data = np.array(self.display_samples, dtype=float)
+        time_plot = time_data
+        sample_plot = sample_data
+        if time_plot.size > self.max_display_points:
+            time_plot, sample_plot = self._downsample_series(
+                time_plot, sample_plot, self.max_display_points
+            )
         if time_data.size > 0:
-            self.line1.set_data(time_data, sample_data)
+            self.line1.set_data(time_plot, sample_plot)
             self.ax1.set_xlim(max(0.0, time_data[-1] - self.display_window), time_data[-1])
             ymin, ymax = np.min(sample_data), np.max(sample_data)
             padding = max(0.02, 0.1 * (ymax - ymin)) if ymax > ymin else 0.05
@@ -147,7 +155,13 @@ class ECGPlot(PlotManager):
 
         times = np.array(self.time_values, dtype=float)
         bpms = np.array(self.bpm_values, dtype=float)
-        self.line3_bpm.set_data(times, bpms)
+        time_rate_plot = times
+        bpm_rate_plot = bpms
+        if time_rate_plot.size > self.max_rate_points:
+            time_rate_plot, bpm_rate_plot = self._downsample_series(
+                time_rate_plot, bpm_rate_plot, self.max_rate_points
+            )
+        self.line3_bpm.set_data(time_rate_plot, bpm_rate_plot)
         if times.size > 0:
             min_time = max(0.0, times[-1] - 60)
             max_time = times[-1] if times[-1] > min_time else min_time + 1
@@ -180,6 +194,11 @@ class ECGPlot(PlotManager):
             last_idx = idx
         return np.array(candidate_indices, dtype=int), {}
 
+    def _downsample_series(self, time_data, sample_data, limit):
+        if time_data.size <= limit:
+            return time_data, sample_data
+        idx = np.linspace(0, time_data.size - 1, limit, dtype=int)
+        return time_data[idx], sample_data[idx]
 
 #Save data in a readable way for users
     def save_data(self, filename):

@@ -1,5 +1,6 @@
 import time
 import random
+from collections import deque
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,11 +19,15 @@ class ReactionPlot(PlotManager):
         self.reaction_start = None
         self.last_cue_time = time.time()
         self.random_delay = random.uniform(2, 5)
-        self.full_time = []
-        self.full_samples = []
+        self.raw_time = []
+        self.raw_samples = []
         self.trial_timestamps = []
 
-
+        self.display_window = 10.0  # seconds shown on screen
+        self.max_display_points = 4000
+        self.display_time = deque()
+        self.display_samples = deque()
+        self._current_xlim = None
         self._setup_plot()
 
     def _setup_plot(self):
@@ -33,7 +38,7 @@ class ReactionPlot(PlotManager):
         self.ax_signal.set_ylim(0, 3.5)
         self.ax_signal.set_ylabel("Button Voltage (V)")
         self.ax_signal.set_xlabel("Time (ms)")
-        self.ax_signal.set_xlim(0)
+        self.ax_signal.set_xlim(0, self.display_window)
         self.ax_signal.grid(True)
 
         self.ax_reaction.set_ylim(0, 1000)
@@ -57,14 +62,35 @@ class ReactionPlot(PlotManager):
         self.selection_end = 0
 
     def update_plot(self, t_axis, samples):
+        t_axis = np.asarray(t_axis, dtype=float)
+        samples = np.asarray(samples, dtype=float)
+        if t_axis.size == 0 or samples.size == 0:
+            return self.line_signal, self.cue_text
 
-        if self.full_time:
-            t_axis = t_axis + self.full_time[-1] + (1 / self.sample_rate)
-        self.full_time.extend(t_axis)
-        self.full_samples.extend(samples)
+        if self.raw_time:
+            last_time = self.raw_time[-1]
+            if t_axis[0] <= last_time:
+                offset = last_time - t_axis[0] + (1 / self.sample_rate)
+                t_axis = t_axis + offset
 
-        self.line_signal.set_data(self.full_time, self.full_samples)
-        self.ax_signal.set_xlim(0, self.full_time[-1])
+        self.raw_time.extend(t_axis.tolist())
+        self.raw_samples.extend(samples.tolist())
+
+        newest_time = t_axis[-1]
+        cutoff = max(0.0, newest_time - self.display_window)
+        for t_val, sample_val in zip(t_axis.tolist(), samples.tolist()):
+            self.display_time.append(t_val)
+            self.display_samples.append(sample_val)
+        while self.display_time and self.display_time[0] < cutoff:
+            self.display_time.popleft()
+            self.display_samples.popleft()
+
+        visible_time = np.fromiter(self.display_time, dtype=float)
+        visible_samples = np.fromiter(self.display_samples, dtype=float)
+        if visible_time.size:
+            visible_time, visible_samples = self._downsample_series(visible_time, visible_samples)
+            self.line_signal.set_data(visible_time, visible_samples)
+            self._update_signal_axes(visible_time, visible_samples)
 
         # Start cue if delay has passed
         now = time.time()
@@ -77,7 +103,7 @@ class ReactionPlot(PlotManager):
         if self.cue_active and np.any(samples > self.threshold_voltage):
             rt_ms = (time.time() - self.reaction_start) * 1000
             self.reaction_times.append(rt_ms)
-            self.trial_timestamps.append(self.full_time[-1] if self.full_time else 0.0)
+            self.trial_timestamps.append(self.raw_time[-1] if self.raw_time else 0.0)
             self.cue_active = False
             self.last_cue_time = time.time()
             self.random_delay = random.uniform(2, 5)
@@ -98,7 +124,7 @@ class ReactionPlot(PlotManager):
         PlotManager.on_press(self, event, self.ax_signal)
 
     def on_release(self, event):
-        PlotManager.on_release(self, event, self.ax_signal, self.full_time, self.full_samples)
+        PlotManager.on_release(self, event, self.ax_signal, self.raw_time, self.raw_samples)
         self.fig.canvas.draw()
 
     def _close_plot(self):
@@ -146,7 +172,7 @@ class ReactionPlot(PlotManager):
 
         raw_ws = workbook.add_worksheet("Raw Signal")
         raw_ws.write_row(0, 0, ["Time (s)", "Button Voltage (V)"])
-        for idx, (t_value, sample) in enumerate(zip(self.full_time, self.full_samples), start=1):
+        for idx, (t_value, sample) in enumerate(zip(self.raw_time, self.raw_samples), start=1):
             raw_ws.write_row(idx, 0, [t_value, sample])
 
         if self.selected_samples:
@@ -157,3 +183,21 @@ class ReactionPlot(PlotManager):
 
         workbook.close()
         return str(destination)
+
+    def _downsample_series(self, time_data, sample_data):
+        if time_data.size <= self.max_display_points:
+            return time_data, sample_data
+        indices = np.linspace(0, time_data.size - 1, self.max_display_points, dtype=int)
+        return time_data[indices], sample_data[indices]
+
+    def _update_signal_axes(self, time_data, sample_data):
+        if time_data.size == 0:
+            return
+
+        x_max = float(time_data[-1])
+        x_min = max(0.0, x_max - self.display_window)
+        if self._current_xlim != (x_min, x_max):
+            if x_max <= x_min:
+                x_max = x_min + (1 / self.sample_rate)
+            self.ax_signal.set_xlim(x_min, x_max)
+            self._current_xlim = (x_min, x_max)

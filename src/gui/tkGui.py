@@ -20,15 +20,16 @@ import argparse
 import os
 import re
 import sys
+import threading
+import queue
 import tkinter as tk
 from dataclasses import dataclass
 from statistics import mean
-from typing import Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 import time
 
 import numpy as np
 
-from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -96,8 +97,12 @@ class SensorModule:
         #Return a when no data
         return None
 
-    def update(self, scope: Scope) -> SensorUpdate:
-        #Fetch new data and describe what should ouput
+    def fetch_data(self, scope: Scope) -> Optional[Any]:
+        #Collect hardware samples or cached data off the UI thread
+        return None
+
+    def process_data(self, data: Any) -> SensorUpdate:
+        #Update plots/metrics on the UI thread using provided data
         return SensorUpdate()
 
     def save_data(self) -> Optional[str]:
@@ -120,7 +125,7 @@ class ReactionSensorModule(SensorModule):
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
-    def update(self, scope: Scope) -> SensorUpdate:
+    def fetch_data(self, scope: Scope) -> Optional[Dict[str, Any]]:
         if not self._reaction_configured:
             setup_fn = getattr(scope, "setup_device_reaction", None)
             if callable(setup_fn):
@@ -129,6 +134,15 @@ class ReactionSensorModule(SensorModule):
 
         samples = scope.get_reaction_samples()
         t_axis = scope.get_reaction_time_axis(samples)
+        return {"samples": samples, "t_axis": t_axis}
+
+    def process_data(self, data: Optional[Dict[str, Any]]) -> SensorUpdate:
+        if not data:
+            return SensorUpdate()
+        samples = data.get("samples")
+        t_axis = data.get("t_axis")
+        if samples is None or t_axis is None:
+            return SensorUpdate()
 
         artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
@@ -182,7 +196,7 @@ class ECGSensorModule(SensorModule):
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
-    def update(self, scope: Scope) -> SensorUpdate:
+    def fetch_data(self, scope: Scope) -> Optional[Dict[str, Any]]:
         if not self._ecg_configured:
             setup_fn = getattr(scope, "setup_device_ecg", None)
             if callable(setup_fn):
@@ -195,6 +209,15 @@ class ECGSensorModule(SensorModule):
         else:
             sample_rate = getattr(self.plot, "sample_rate", 1) or 1
             t_axis = np.arange(len(samples)) / sample_rate
+        return {"samples": samples, "t_axis": t_axis}
+
+    def process_data(self, data: Optional[Dict[str, Any]]) -> SensorUpdate:
+        if not data:
+            return SensorUpdate()
+        samples = data.get("samples")
+        t_axis = data.get("t_axis")
+        if samples is None or t_axis is None:
+            return SensorUpdate()
 
         artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
@@ -250,7 +273,7 @@ class RespiratorySensorModule(SensorModule):
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
-    def update(self, scope: Scope) -> SensorUpdate:
+    def fetch_data(self, scope: Scope) -> Optional[Dict[str, Any]]:
         if not self._configured:
             setup_fn = getattr(scope, "setup_device_respiratory", None)
             if callable(setup_fn):
@@ -263,6 +286,15 @@ class RespiratorySensorModule(SensorModule):
         else:
             sample_rate = getattr(self.plot, "sample_rate", 1) or 1
             t_axis = np.arange(len(samples)) / sample_rate
+        return {"samples": samples, "t_axis": t_axis}
+
+    def process_data(self, data: Optional[Dict[str, Any]]) -> SensorUpdate:
+        if not data:
+            return SensorUpdate()
+        samples = data.get("samples")
+        t_axis = data.get("t_axis")
+        if samples is None or t_axis is None:
+            return SensorUpdate()
 
         artists = self.plot.update_plot(t_axis, samples)
         if artists is None:
@@ -532,8 +564,13 @@ class CyVitalApp:
 
         self.current_sensor_key: Optional[str] = None
         self.current_module: Optional[SensorModule] = None
-        self.animation: Optional[FuncAnimation] = None
         self.animation_running = False
+        self.data_queue: Optional["queue.Queue[Any]"] = None
+        self.worker_thread: Optional[threading.Thread] = None
+        self.worker_stop_event: Optional[threading.Event] = None
+        self.ui_update_job: Optional[str] = None
+        self.ui_interval_ms = 50
+        self.max_ui_queue_drain = 8
 
         self.canvas: Optional[FigureCanvasTkAgg] = None
         self.canvas_widget: Optional[tk.Widget] = None
@@ -814,7 +851,7 @@ class CyVitalApp:
         if not definition:
             return
 
-        self._stop_animation()
+        self._stop_streaming()
         self._hide_loading_overlay()
         if self.current_module:
             self.current_module.cleanup()
@@ -887,40 +924,109 @@ class CyVitalApp:
         else:
             self.export_btn.configure(state=tk.DISABLED)
 
-        if self.current_module.supports_streaming and self.current_module.get_figure():
+        if self.current_module.supports_streaming and self.plot_has_figure:
             self.toggle_btn.configure(state=tk.NORMAL, text="Pause")
-            self.animation_running = True
             self.status_indicator.configure(fg=COLORS["status_active"])
             self.status_text_var.set("Live")
-            self._start_animation()
+            self._start_streaming()
         else:
             self.toggle_btn.configure(state=tk.DISABLED, text="Unavailable")
-            self.animation_running = False
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Offline")
+            self._stop_streaming()
             self._hide_loading_overlay()
 
-    def _start_animation(self) -> None:
-        if not self.current_module or not self.current_module.supports_streaming:
+    def _start_streaming(self) -> None:
+        if not self.current_module or not self.current_module.supports_streaming or not self.plot_has_figure:
             return
-        figure = self.current_module.get_figure()
-        if not figure:
+        if self.animation_running:
             return
-        self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False)
+        self.animation_running = True
+        self._start_worker_thread()
+        self._schedule_ui_tick()
 
-    def _stop_animation(self) -> None:
-        if self.animation:
-            self.animation.event_source.stop()
-            self.animation = None
+    def _stop_streaming(self) -> None:
         self.animation_running = False
+        if self.ui_update_job:
+            self.root.after_cancel(self.ui_update_job)
+            self.ui_update_job = None
+        if self.worker_stop_event:
+            self.worker_stop_event.set()
+        self.worker_thread = None
+        self.worker_stop_event = None
+        self.data_queue = None
 
-    def _update_frame(self, _frame: int):
+    def _start_worker_thread(self) -> None:
         if not self.current_module:
-            return tuple()
+            return
+        # If an existing worker is alive, leave it running.
+        if self.worker_thread and self.worker_thread.is_alive():
+            return
+        self.worker_stop_event = threading.Event()
+        self.data_queue = queue.Queue(maxsize=4)
+        worker = threading.Thread(
+            target=self._sensor_worker_loop,
+            args=(self.current_module, self.scope, self.data_queue, self.worker_stop_event),
+            daemon=True,
+        )
+        self.worker_thread = worker
+        worker.start()
 
-        update = self.current_module.update(self.scope)
-        self._apply_sensor_update(update)
-        return update.artists or tuple()
+    def _sensor_worker_loop(
+        self,
+        module: SensorModule,
+        scope: Scope,
+        data_queue: "queue.Queue[Any]",
+        stop_event: threading.Event,
+    ) -> None:
+        while not stop_event.is_set():
+            try:
+                payload = module.fetch_data(scope)
+            except Exception as exc:  # pragma: no cover - diagnostic only
+                print(f"[CyVital] Sensor worker error: {exc}")
+                time.sleep(0.1)
+                continue
+            if payload is None:
+                continue
+            placed = False
+            while not placed and not stop_event.is_set():
+                try:
+                    data_queue.put(payload, timeout=0.1)
+                    placed = True
+                except queue.Full:
+                    try:
+                        data_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+
+    def _schedule_ui_tick(self) -> None:
+        if not self.animation_running:
+            return
+        self.ui_update_job = self.root.after(self.ui_interval_ms, self._process_sensor_queue)
+
+    def _process_sensor_queue(self) -> None:
+        self.ui_update_job = None
+        if not self.animation_running or not self.current_module or not self.data_queue:
+            return
+        latest_payload: Any = None
+        drained = 0
+        max_drain = self.max_ui_queue_drain
+        while drained < max_drain:
+            try:
+                item = self.data_queue.get_nowait()
+            except queue.Empty:
+                break
+            else:
+                latest_payload = item
+                drained += 1
+        if latest_payload is not None:
+            try:
+                update = self.current_module.process_data(latest_payload)
+            except Exception as exc:  # pragma: no cover - diagnostic only
+                self.log_status_var.set(f"Stream error: {exc}")
+            else:
+                self._apply_sensor_update(update)
+        self._schedule_ui_tick()
 
     def _apply_sensor_update(self, update: SensorUpdate) -> None:
         data_changed = False
@@ -1090,17 +1196,17 @@ class CyVitalApp:
         self.loading_phase = 0
 
     def toggle_animation(self) -> None:
-        if not self.animation or not self.current_module:
+        if not self.current_module or not self.current_module.supports_streaming:
             return
         if self.animation_running:
-            self.animation.event_source.stop()
-            self.animation_running = False
+            self._stop_streaming()
             self.toggle_btn.configure(text="Resume")
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Paused")
         else:
-            self.animation.event_source.start()
-            self.animation_running = True
+            if not self.plot_has_figure:
+                return
+            self._start_streaming()
             self.toggle_btn.configure(text="Pause")
             self.status_indicator.configure(fg=COLORS["status_active"])
             self.status_text_var.set("Live")
@@ -1114,7 +1220,7 @@ class CyVitalApp:
                 self.log_status_var.set("Data exported.")
 
     def shutdown(self) -> None:
-        self._stop_animation()
+        self._stop_streaming()
         self._hide_loading_overlay()
         if self.current_module:
             self.current_module.cleanup()
