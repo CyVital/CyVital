@@ -114,6 +114,8 @@ class Scope:
 
     def setup_device_pulse_ox(self):
 
+        self.pulse_ox_sample_count = 0
+
         self.reset()
 
         # Power

@@ -81,8 +81,8 @@ class PulseOxPlot(PlotManager):
 
         # set data
         # xs = range(len(self.red_values))
-        self.line_red.set_data(time_axis, self.all_red_values)
-        self.line_ir.set_data(time_axis, self.all_ir_values)
+        self.line_red.set_data(range(len(time_axis)), self.all_red_values)
+        self.line_ir.set_data(range(len(time_axis)), self.all_ir_values)
 
         # compute vitals
         raw_bpm = self.estimate_bpm(self.ir_values)
