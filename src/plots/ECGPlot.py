@@ -80,8 +80,7 @@ class ECGPlot(PlotManager):
         acrms = np.sqrt(np.average((samples - dc) ** 2))
 
         # Update waveform plot
-        x = np.arange(len(samples))
-        self.line1.set_data(x, samples)
+        self.line1.set_data(self.raw_time_vals, self.raw_vals)
 
         # Detect peaks (heartbeats)
         peaks, _ = find_peaks(samples, height=1.92, distance=200, prominence=0.01)
@@ -121,7 +120,7 @@ class ECGPlot(PlotManager):
             self.bpm_values.append(0)
             self.bpm_text.set_text('BPM: --')
 
-        self.ax1.set_xlim(0, len(samples))
+        self.ax1.set_xlim(self.raw_time_vals[-1] - self.window_duration, self.raw_time_vals[-1])
         self.line3_bpm.set_data(self.time_values, self.bpm_values)
 
         return self.line1, self.peaks_plot, self.line3_bpm, self.bpm_text
