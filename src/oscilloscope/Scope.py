@@ -75,7 +75,6 @@ class Scope:
         return t_axis
     
     def get_ecg_time_axis(self, samples):
-        print(samples)
         return np.linspace(0, len(samples) / self.ecg_sample_rate, len(samples))
 
     def get_reaction_time_axis(self, samples):

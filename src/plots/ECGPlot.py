@@ -120,8 +120,6 @@ class ECGPlot(PlotManager):
             self.bpm_values.append(0)
             self.bpm_text.set_text('BPM: --')
 
-        print(self.raw_time_vals[-1])
-
         self.ax1.set_xlim(self.raw_time_vals[-1] - self.window_duration, self.raw_time_vals[-1])
         self.line3_bpm.set_data(self.time_values, self.bpm_values)
 
