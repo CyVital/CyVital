@@ -583,7 +583,6 @@ class SensorDefinition:
     primary_label: str
     secondary_label: str
     module_factory: Callable[[], SensorModule]
-    icon: str = ""
 
 
 DEFAULT_SENSORS = [
@@ -594,7 +593,6 @@ DEFAULT_SENSORS = [
         primary_label="Latest Reaction",
         secondary_label="Average Reaction",
         module_factory=ReactionSensorModule,
-        icon="⏱",
     ),
     SensorDefinition(
         key="resp",
@@ -603,7 +601,6 @@ DEFAULT_SENSORS = [
         primary_label="Respirations/min",
         secondary_label="Effort Range",
         module_factory=RespiratorySensorModule,
-        icon="〰",
     ),
     SensorDefinition(
         key="ecg",
@@ -612,7 +609,6 @@ DEFAULT_SENSORS = [
         primary_label="Current BPM",
         secondary_label="Avg BPM",
         module_factory=ECGSensorModule,
-        icon="♥",
     ),
     SensorDefinition(
         key="emg",
@@ -621,7 +617,6 @@ DEFAULT_SENSORS = [
         primary_label="Primary Reading",
         secondary_label="Secondary Reading",
         module_factory=EMGSensorModule,
-        icon="⌁",
     ),
     SensorDefinition(
         key="pulse",
@@ -630,7 +625,6 @@ DEFAULT_SENSORS = [
         primary_label="SpO₂",
         secondary_label="Pulse",
         module_factory=PulseOxSensorModule,
-        icon="◉",
     ),
 ]
 
@@ -693,7 +687,6 @@ class NavItem:
         parent: tk.Frame,
         title: str,
         subtitle: str,
-        icon: str,
         command: Callable[[], None],
     ) -> None:
         self.command = command
@@ -711,16 +704,6 @@ class NavItem:
 
         self.text_frame = tk.Frame(self.container, bg=COLORS["sidebar"], padx=16, pady=12)
         self.text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        self.icon_label = tk.Label(
-            self.text_frame,
-            text=icon or "•",
-            fg=COLORS["accent_muted"],
-            bg=COLORS["sidebar"],
-            font=(FONT_FAMILY, 13),
-            padx=4,
-        )
-        self.icon_label.pack(side=tk.LEFT, anchor="center")
 
         self.title_label = tk.Label(
             self.text_frame,
@@ -748,7 +731,6 @@ class NavItem:
             self.container,
             self.indicator,
             self.text_frame,
-            self.icon_label,
             self.title_label,
             self.subtitle_label,
         )
@@ -1049,15 +1031,16 @@ class CyVitalApp:
             padx=24,
             pady=20,
         )
+        content = frame
         tk.Label(
-            frame,
+            content,
             textvariable=title_var,
             fg=COLORS["text_secondary"],
             bg=COLORS["panel"],
             font=FONTS["metric_label"],
         ).pack(anchor="w")
         value_label = tk.Label(
-            frame,
+            content,
             textvariable=value_var,
             fg=COLORS["accent"],
             bg=COLORS["panel"],
@@ -1180,7 +1163,6 @@ class CyVitalApp:
             self.nav_frame,
             title=definition.title,
             subtitle=definition.subtitle,
-             icon=definition.icon,
             command=lambda key=definition.key: self.set_sensor(key),
         )
         self.nav_items[definition.key] = nav_item
