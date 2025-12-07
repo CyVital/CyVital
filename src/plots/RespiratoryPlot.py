@@ -103,6 +103,9 @@ class RespiratoryPlot(PlotManager):
 
         return self.line_wave, self.line_rate
 
+    def _close_plot(self) -> None:
+        plt.close(self.fig)
+
     def _detect_breaths(self, t_axis: np.ndarray, samples: np.ndarray) -> List[float]:
         """Identify rising zero crossings as proxies for inhalation peaks."""
         if samples.size < 2:
