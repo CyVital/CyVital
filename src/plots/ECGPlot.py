@@ -19,7 +19,7 @@ class ECGPlot(PlotManager):
         self.all_peak_times = []
         self.recent_peak_times = []
         self.window_duration = 10
-        self.display_window = 10
+        self.display_window = 5
         self.raw_time = []
         self.raw_samples = []
         self.display_time = deque()
@@ -31,7 +31,15 @@ class ECGPlot(PlotManager):
 
         # Store the sample rate as a global variable
         self.sample_rate = 8192  # This should match the value used in scope.scan_shift()
+        self.configure_history_window(window_seconds=self.display_window)
         self._setup_plot()
+        self.register_history_channel(
+            channel="waveform",
+            axis=self.ax1,
+            line=self.line1,
+            relative_to_window=False,
+            max_points=self.max_display_points,
+        )
 
     def _setup_plot(self):
         self.fig, (self.ax1, self.ax3) = plt.subplots(2, 1, figsize=(10, 8))
@@ -73,6 +81,7 @@ class ECGPlot(PlotManager):
 
         t_axis = np.asarray(t_axis, dtype=float)
         samples = np.asarray(samples, dtype=float)
+        self.record_history_samples("waveform", t_axis, samples)
 
         self.raw_time.extend(t_axis.tolist())
         self.raw_samples.extend(samples.tolist())

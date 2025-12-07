@@ -13,8 +13,9 @@ class RespiratoryPlot(PlotManager):
     def __init__(self) -> None:
         super().__init__()
         self.sample_rate = 200  # Hz, matches the FakeScope default
-        self.display_window = 20  # seconds of waveform to keep on screen
+        self.display_window = 5  # seconds of waveform to keep on screen
         self.rate_window = 60  # seconds used for breaths-per-minute averaging
+        self.configure_history_window(window_seconds=self.display_window)
 
         self.display_time: deque[float] = deque()
         self.display_samples: deque[float] = deque()
@@ -35,6 +36,13 @@ class RespiratoryPlot(PlotManager):
         self.ax_wave.set_ylabel("Signal (V)")
         self.ax_wave.set_xlabel("Time (s)")
         self.ax_wave.grid(True)
+        self.register_history_channel(
+            channel="resp_wave",
+            axis=self.ax_wave,
+            line=self.line_wave,
+            relative_to_window=False,
+            max_points=2000,
+        )
 
         self.line_rate, = self.ax_rate.plot([], [], color="#ff7f0e", linewidth=2)
         self.ax_rate.set_ylabel("Breaths/min")
@@ -47,6 +55,7 @@ class RespiratoryPlot(PlotManager):
         samples = np.asarray(list(samples), dtype=float)
         if t_axis.size == 0 or samples.size == 0:
             return self.line_wave, self.line_rate
+        self.record_history_samples("resp_wave", t_axis, samples)
 
         self.display_time.extend(t_axis.tolist())
         self.display_samples.extend(samples.tolist())
@@ -126,4 +135,3 @@ class RespiratoryPlot(PlotManager):
         if avg_interval <= 0:
             return None
         return 60.0 / avg_interval
-

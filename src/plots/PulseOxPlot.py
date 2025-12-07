@@ -15,17 +15,20 @@ import matplotlib.ticker as plticker
 class PulseOxPlot(PlotManager):
     def __init__(self):
         super().__init__()
-        self.window_size = 100
         self.fs = 10  # sampling rate (Hz)
+        self.window_size = int(self.fs * 5)  # 5-second window
         self.min_peak_distance = int(0.5 * self.fs)  
         self.bpm_hist = deque(maxlen=5) 
         self._scipy_warned = False
 
         # --- Buffers ---
-        self.red_values = deque([0]*self.window_size, maxlen=self.window_size)
-        self.ir_values  = deque([0]*self.window_size, maxlen=self.window_size)
+        self.red_values = deque(maxlen=self.window_size)
+        self.ir_values  = deque(maxlen=self.window_size)
         self.all_red_values = []
         self.all_ir_values = []
+        self.window_times = deque(maxlen=self.window_size)
+        self.all_times = []
+        self.sample_index = 0
 
         self.all_bits = []
 
@@ -38,7 +41,15 @@ class PulseOxPlot(PlotManager):
         else:
             self.b, self.a = None, None
 
+        self.configure_history_window(window_seconds=self.window_size / self.fs)
         self._setup_plot()
+        self.register_history_channel(
+            channel="pulse_ir",
+            axis=self.ax,
+            line=self.line_ir,
+            relative_to_window=False,
+            max_points=self.window_size,
+        )
 
     def _setup_plot(self):
         self.fig, (self.ax_dig, self.ax) = plt.subplots(2, 1, figsize=(10,8))
@@ -79,6 +90,11 @@ class PulseOxPlot(PlotManager):
         self.ir_values.append(ir)
         self.all_red_values.append(red)
         self.all_ir_values.append(ir)
+        timestamp = self.sample_index / self.fs
+        self.sample_index += 1
+        self.window_times.append(timestamp)
+        self.all_times.append(timestamp)
+        self.record_history_samples("pulse_ir", [timestamp], [ir])
 
         #convert to binary
         bits = [(samples[0] >> i) & 1 for i in range(7, -1, -1)] + [(samples[1] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[2] >> i) & 1 for i in range(7, -1, -1)] + [(samples[3] >> i) & 1 for i in range(7, -1, -1)] + [(samples[4] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[5] >> i) & 1 for i in range(7, -1, -1)]
@@ -86,12 +102,13 @@ class PulseOxPlot(PlotManager):
 
         #set binary data
         self.line_red_dig.set_data(range(len(self.all_bits)), self.all_bits)
-        self.ax_dig.set_xlim(len(self.all_bits) - len(bits), len(self.all_bits))
+        start_idx = max(0, len(self.all_bits) - len(bits))
+        self.ax_dig.set_xlim(start_idx, len(self.all_bits))
 
         # set data
-        # xs = range(len(self.red_values))
-        self.line_red.set_data(time_axis, self.all_red_values)
-        self.line_ir.set_data(time_axis, self.all_ir_values)
+        window_times = list(self.window_times)
+        self.line_red.set_data(window_times, list(self.red_values))
+        self.line_ir.set_data(window_times, list(self.ir_values))
 
         # compute vitals
         raw_bpm = self.estimate_bpm(self.ir_values)
@@ -103,7 +120,10 @@ class PulseOxPlot(PlotManager):
         self.ax.set_ylim(0, current_max * 1.1)
 
         #rescale x
-        self.ax.set_xlim(time_axis[-1] - len(self.red_values), time_axis[-1])
+        if window_times:
+            window_duration = self.window_size / self.fs
+            latest_time = window_times[-1]
+            self.ax.set_xlim(max(0.0, latest_time - window_duration), latest_time if latest_time > 0 else window_duration)
 
         return self.line_red, self.line_ir, self.line_red_dig
     

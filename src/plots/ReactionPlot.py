@@ -23,12 +23,20 @@ class ReactionPlot(PlotManager):
         self.raw_samples = []
         self.trial_timestamps = []
 
-        self.display_window = 10.0  # seconds shown on screen
+        self.display_window = 5.0  # seconds shown on screen
         self.max_display_points = 4000
         self.display_time = deque()
         self.display_samples = deque()
         self._current_xlim = None
+        self.configure_history_window(window_seconds=self.display_window, step_seconds=self.display_window / 2)
         self._setup_plot()
+        self.register_history_channel(
+            channel="signal",
+            axis=self.ax_signal,
+            line=self.line_signal,
+            relative_to_window=False,
+            max_points=self.max_display_points,
+        )
 
     def _setup_plot(self):
         self.fig, (self.ax_signal, self.ax_reaction) = plt.subplots(2, 1, figsize=(15, 8))
@@ -72,6 +80,7 @@ class ReactionPlot(PlotManager):
             if t_axis[0] <= last_time:
                 offset = last_time - t_axis[0] + (1 / self.sample_rate)
                 t_axis = t_axis + offset
+        self.record_history_samples("signal", t_axis, samples)
 
         self.raw_time.extend(t_axis.tolist())
         self.raw_samples.extend(samples.tolist())

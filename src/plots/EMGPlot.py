@@ -24,6 +24,7 @@ class EMGPlot(PlotManager):
         self.env_time_vals, self.raw_time_vals, self.env_vals, self.raw_vals = [], [], [], []
         self.sample_count = 0
 
+        self.configure_history_window(window_seconds=5.0, step_seconds=2.5)
         self._setup_plot()
         self._scipy_warned = False
 
@@ -37,6 +38,13 @@ class EMGPlot(PlotManager):
         self.ax_raw.set_ylim(0, 0.1)
         self.ax_raw.set_xlabel("Time (s)")
         self.ax_raw.grid(True)
+        self.register_history_channel(
+            channel="emg_raw",
+            axis=self.ax_raw,
+            line=self.line_raw,
+            relative_to_window=False,
+            max_points=4000,
+        )
 
         self.line_env, = self.ax_env.plot([], [], lw=2)
         self.ax_env.set_ylabel("EMG Envelope (V)")
@@ -55,11 +63,15 @@ class EMGPlot(PlotManager):
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
     def update_plot(self, t_axis, samples):
-
+        t_axis = np.asarray(t_axis, dtype=float)
+        samples = np.asarray(samples, dtype=float)
+        if t_axis.size == 0 or samples.size == 0:
+            return self.line_raw, self.line_env
+        self.record_history_samples("emg_raw", t_axis, samples)
         filt = self._bandpass_filter(samples, self.sample_rate)
         rect = np.abs(filt)
         env  = self._moving_average(rect)
-        
+
         self.raw_time_vals.extend(t_axis)
         self.raw_vals.extend(samples)
         self.env_time_vals.append(t_axis[-1])

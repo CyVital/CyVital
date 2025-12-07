@@ -48,22 +48,41 @@ from plots.RespiratoryPlot import RespiratoryPlot
 
 
 COLORS = {
-    "background": "#f4f7fb",
-    "sidebar": "#ffffff",
-    "sidebar_hover": "#f0f4ff",
-    "sidebar_active": "#e7efff",
-    "sidebar_text_primary": "#1d2742",
-    "sidebar_text_secondary": "#637190",
-    "text_primary": "#1d2742",
-    "text_secondary": "#637190",
-    "panel": "#ffffff",
-    "panel_border": "#d7e3f5",
-    "accent": "#2f6fed",
-    "accent_text": "#ffffff",
-    "status_active": "#2f6fed",
-    "status_inactive": "#94a3c0",
-    "tooltip_bg": "#1d2742",
-    "tooltip_text": "#ffffff",
+    "background": "#F5F5F7",
+    "sidebar": "#1F1F1F",
+    "sidebar_hover": "#2A2A2A",
+    "sidebar_active": "#353535",
+    "sidebar_text_primary": "#FFFFFF",
+    "sidebar_text_secondary": "#9EA3AE",
+    "text_primary": "#111111",
+    "text_secondary": "#6B6D71",
+    "panel": "#FFFFFF",
+    "panel_border": "#E3E3E8",
+    "panel_gloss": "#FFFFFFCC",
+    "accent": "#0071E3",
+    "accent_muted": "#4D9FF8",
+    "accent_text": "#FFFFFF",
+    "status_active": "#34C759",
+    "status_inactive": "#8E8E93",
+    "tooltip_bg": "#1F1F1F",
+    "tooltip_text": "#FFFFFF",
+}
+
+BASE_FONT_FAMILY = "Segoe UI"
+# Brace-wrapped so Tk treats the family name as a single token.
+FONT_FAMILY = f"{{{BASE_FONT_FAMILY}}}"
+FONTS = {
+    "brand": (FONT_FAMILY, 20, "bold"),
+    "brand_sub": (FONT_FAMILY, 10),
+    "nav_title": (FONT_FAMILY, 12, "bold"),
+    "nav_sub": (FONT_FAMILY, 10),
+    "header": (FONT_FAMILY, 24, "bold"),
+    "subheader": (FONT_FAMILY, 12),
+    "body": (FONT_FAMILY, 11),
+    "body_bold": (FONT_FAMILY, 11, "bold"),
+    "metric_value": (FONT_FAMILY, 28, "bold"),
+    "metric_label": (FONT_FAMILY, 10),
+    "button": (FONT_FAMILY, 11, "bold"),
 }
 
 
@@ -114,6 +133,19 @@ class SensorModule:
     def cleanup(self) -> None:
         #Release resource
         pass
+
+    # ── History navigation hooks (optional) ────────────────────────────────────
+    def supports_history_navigation(self) -> bool:
+        return False
+
+    def enter_history_mode(self) -> bool:
+        return False
+
+    def exit_history_mode(self) -> None:
+        pass
+
+    def shift_history_window(self, direction: int) -> bool:
+        return False
 
 class ReactionSensorModule(SensorModule):
     #reaction-time workflow within app
@@ -184,6 +216,18 @@ class ReactionSensorModule(SensorModule):
 
     def cleanup(self) -> None:
         self.plot._close_plot()
+
+    def supports_history_navigation(self) -> bool:
+        return True
+
+    def enter_history_mode(self) -> bool:
+        return self.plot.enter_review_mode()
+
+    def exit_history_mode(self) -> None:
+        self.plot.exit_review_mode()
+
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
 
 
 class ECGSensorModule(SensorModule):
@@ -262,6 +306,18 @@ class ECGSensorModule(SensorModule):
     def cleanup(self) -> None:
         self.plot._close_plot()
 
+    def supports_history_navigation(self) -> bool:
+        return True
+
+    def enter_history_mode(self) -> bool:
+        return self.plot.enter_review_mode()
+
+    def exit_history_mode(self) -> None:
+        self.plot.exit_review_mode()
+
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+
 
 class RespiratorySensorModule(SensorModule):
     """Streams respiratory effort data and surfaces respiration metrics."""
@@ -337,6 +393,18 @@ class RespiratorySensorModule(SensorModule):
     def cleanup(self) -> None:
         self.plot._close_plot()
 
+    def supports_history_navigation(self) -> bool:
+        return True
+
+    def enter_history_mode(self) -> bool:
+        return self.plot.enter_review_mode()
+
+    def exit_history_mode(self) -> None:
+        self.plot.exit_review_mode()
+
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+
 
 class EMGSensorModule(SensorModule):
     """Streams EMG samples and renders the EMG plot."""
@@ -398,6 +466,18 @@ class EMGSensorModule(SensorModule):
 
     def cleanup(self) -> None:
         self.plot._close_plot()
+
+    def supports_history_navigation(self) -> bool:
+        return True
+
+    def enter_history_mode(self) -> bool:
+        return self.plot.enter_review_mode()
+
+    def exit_history_mode(self) -> None:
+        self.plot.exit_review_mode()
+
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
 
 
 class PulseOxSensorModule(SensorModule):
@@ -468,6 +548,18 @@ class PulseOxSensorModule(SensorModule):
     def cleanup(self) -> None:
         self.plot._close_plot()
 
+    def supports_history_navigation(self) -> bool:
+        return True
+
+    def enter_history_mode(self) -> bool:
+        return self.plot.enter_review_mode()
+
+    def exit_history_mode(self) -> None:
+        self.plot.exit_review_mode()
+
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+
 
 class MessageSensorModule(SensorModule):
     #onboarding instructions
@@ -491,6 +583,7 @@ class SensorDefinition:
     primary_label: str
     secondary_label: str
     module_factory: Callable[[], SensorModule]
+    icon: str = ""
 
 
 DEFAULT_SENSORS = [
@@ -501,6 +594,7 @@ DEFAULT_SENSORS = [
         primary_label="Latest Reaction",
         secondary_label="Average Reaction",
         module_factory=ReactionSensorModule,
+        icon="⏱",
     ),
     SensorDefinition(
         key="resp",
@@ -509,6 +603,7 @@ DEFAULT_SENSORS = [
         primary_label="Respirations/min",
         secondary_label="Effort Range",
         module_factory=RespiratorySensorModule,
+        icon="〰",
     ),
     SensorDefinition(
         key="ecg",
@@ -517,6 +612,7 @@ DEFAULT_SENSORS = [
         primary_label="Current BPM",
         secondary_label="Avg BPM",
         module_factory=ECGSensorModule,
+        icon="♥",
     ),
     SensorDefinition(
         key="emg",
@@ -525,6 +621,7 @@ DEFAULT_SENSORS = [
         primary_label="Primary Reading",
         secondary_label="Secondary Reading",
         module_factory=EMGSensorModule,
+        icon="⌁",
     ),
     SensorDefinition(
         key="pulse",
@@ -533,6 +630,7 @@ DEFAULT_SENSORS = [
         primary_label="SpO₂",
         secondary_label="Pulse",
         module_factory=PulseOxSensorModule,
+        icon="◉",
     ),
 ]
 
@@ -590,9 +688,22 @@ class HoverTooltip:
 class NavItem:
     #Navigation that toggles active sensor
 
-    def __init__(self, parent: tk.Frame, title: str, subtitle: str, command: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        parent: tk.Frame,
+        title: str,
+        subtitle: str,
+        icon: str,
+        command: Callable[[], None],
+    ) -> None:
         self.command = command
-        self.container = tk.Frame(parent, bg=COLORS["sidebar"])
+        self.container = tk.Frame(
+            parent,
+            bg=COLORS["sidebar"],
+            highlightthickness=1,
+            highlightbackground=COLORS["sidebar"],
+            highlightcolor=COLORS["sidebar"],
+        )
         self.container.pack(fill=tk.X, pady=4)
 
         self.indicator = tk.Frame(self.container, width=4, bg=COLORS["sidebar"], height=48)
@@ -601,21 +712,31 @@ class NavItem:
         self.text_frame = tk.Frame(self.container, bg=COLORS["sidebar"], padx=16, pady=12)
         self.text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        self.icon_label = tk.Label(
+            self.text_frame,
+            text=icon or "•",
+            fg=COLORS["accent_muted"],
+            bg=COLORS["sidebar"],
+            font=(FONT_FAMILY, 13),
+            padx=4,
+        )
+        self.icon_label.pack(side=tk.LEFT, anchor="center")
+
         self.title_label = tk.Label(
             self.text_frame,
             text=title,
             fg=COLORS["sidebar_text_primary"],
             bg=COLORS["sidebar"],
-            font=("Segoe UI Semibold", 12),
+            font=FONTS["nav_title"],
         )
-        self.title_label.pack(anchor="w")
+        self.title_label.pack(anchor="w", padx=(6, 0))
 
         self.subtitle_label = tk.Label(
             self.text_frame,
             text=subtitle,
             fg=COLORS["sidebar_text_secondary"],
             bg=COLORS["sidebar"],
-            font=("Segoe UI", 9),
+            font=FONTS["nav_sub"],
         )
         self.subtitle_label.pack(anchor="w")
 
@@ -627,6 +748,7 @@ class NavItem:
             self.container,
             self.indicator,
             self.text_frame,
+            self.icon_label,
             self.title_label,
             self.subtitle_label,
         )
@@ -679,6 +801,7 @@ class NavItem:
         ):
             widget.configure(bg=bg_color)
         self.indicator.configure(bg=accent)
+        self.container.configure(highlightbackground=accent, highlightcolor=accent)
 
 
 class CyVitalApp:
@@ -722,6 +845,8 @@ class CyVitalApp:
         self.loading_animation_job: Optional[str] = None
         self.loading_phase = 0
         self.plot_has_figure = False
+        self.history_mode_active = False
+        self.history_buttons: list[tk.Button] = []
 
         self._configure_root()
         self._build_layout()
@@ -737,6 +862,7 @@ class CyVitalApp:
         self.root.minsize(1180, 720)
         self.root.columnconfigure(1, weight=1)
         self.root.rowconfigure(0, weight=1)
+        self.root.option_add("*Font", f"{FONT_FAMILY} 11")
 
     def _build_layout(self) -> None:
         self.sidebar = tk.Frame(self.root, width=260, bg=COLORS["sidebar"])
@@ -758,14 +884,14 @@ class CyVitalApp:
             text="CyVital",
             fg=COLORS["sidebar_text_primary"],
             bg=COLORS["sidebar"],
-            font=("Segoe UI", 20, "bold"),
+            font=FONTS["brand"],
         ).pack(anchor="w")
         tk.Label(
             brand_frame,
             text="Biomedical Monitor",
             fg=COLORS["sidebar_text_secondary"],
             bg=COLORS["sidebar"],
-            font=("Segoe UI", 10),
+            font=FONTS["brand_sub"],
         ).pack(anchor="w")
 
     def _build_nav(self) -> None:
@@ -781,7 +907,7 @@ class CyVitalApp:
             text="Live Monitoring",
             fg=COLORS["accent"],
             bg=COLORS["sidebar_active"],
-            font=("Segoe UI", 10, "bold"),
+            font=FONTS["body_bold"],
             padx=16,
             pady=12,
         ).pack(fill=tk.X)
@@ -809,7 +935,7 @@ class CyVitalApp:
             text="",
             fg=COLORS["text_primary"],
             bg=COLORS["background"],
-            font=("Segoe UI", 22, "bold"),
+            font=FONTS["header"],
         )
         self.header_title_label.pack(anchor="w")
 
@@ -818,7 +944,7 @@ class CyVitalApp:
             text="",
             fg=COLORS["text_secondary"],
             bg=COLORS["background"],
-            font=("Segoe UI", 11),
+            font=FONTS["subheader"],
             pady=4,
         )
         self.header_subtitle_label.pack(anchor="w")
@@ -840,7 +966,7 @@ class CyVitalApp:
             textvariable=self.status_text_var,
             fg=COLORS["text_primary"],
             bg=COLORS["background"],
-            font=("Segoe UI", 10, "bold"),
+            font=FONTS["body_bold"],
         ).grid(row=0, column=1, padx=(0, 12))
 
         self.toggle_btn = tk.Button(
@@ -854,8 +980,46 @@ class CyVitalApp:
             relief=tk.FLAT,
             padx=18,
             pady=8,
+            font=FONTS["button"],
         )
         self.toggle_btn.grid(row=0, column=2)
+        self._attach_button_hover(self.toggle_btn)
+
+        history_frame = tk.Frame(self.controls_frame, bg=COLORS["background"])
+        history_frame.grid(row=0, column=3, padx=(12, 0))
+
+        self.history_back_btn = tk.Button(
+            history_frame,
+            text="◀",
+            width=3,
+            state=tk.DISABLED,
+            command=lambda: self._shift_history(-1),
+            bg=COLORS["panel"],
+            fg=COLORS["text_primary"],
+            relief=tk.FLAT,
+            padx=6,
+            pady=8,
+            font=FONTS["button"],
+        )
+        self.history_back_btn.pack(side=tk.LEFT, padx=(0, 6))
+        self._attach_button_hover(self.history_back_btn)
+
+        self.history_forward_btn = tk.Button(
+            history_frame,
+            text="▶",
+            width=3,
+            state=tk.DISABLED,
+            command=lambda: self._shift_history(1),
+            bg=COLORS["panel"],
+            fg=COLORS["text_primary"],
+            relief=tk.FLAT,
+            padx=6,
+            pady=8,
+            font=FONTS["button"],
+        )
+        self.history_forward_btn.pack(side=tk.LEFT)
+        self._attach_button_hover(self.history_forward_btn)
+        self.history_buttons = [self.history_back_btn, self.history_forward_btn]
 
     def _build_metrics(self) -> None:
         metrics_frame = tk.Frame(self.main_container, bg=COLORS["background"])
@@ -882,7 +1046,7 @@ class CyVitalApp:
             highlightbackground=COLORS["panel_border"],
             highlightcolor=COLORS["panel_border"],
             highlightthickness=1,
-            padx=20,
+            padx=24,
             pady=20,
         )
         tk.Label(
@@ -890,14 +1054,14 @@ class CyVitalApp:
             textvariable=title_var,
             fg=COLORS["text_secondary"],
             bg=COLORS["panel"],
-            font=("Segoe UI", 10),
+            font=FONTS["metric_label"],
         ).pack(anchor="w")
         value_label = tk.Label(
             frame,
             textvariable=value_var,
             fg=COLORS["accent"],
             bg=COLORS["panel"],
-            font=("Segoe UI", 26, "bold"),
+            font=FONTS["metric_value"],
             pady=6,
         )
         value_label.pack(anchor="w")
@@ -928,7 +1092,7 @@ class CyVitalApp:
             textvariable=self.log_status_var,
             fg=COLORS["text_secondary"],
             bg=COLORS["background"],
-            font=("Segoe UI", 10),
+            font=FONTS["body"],
         ).pack(anchor="w")
 
         tk.Label(
@@ -936,7 +1100,7 @@ class CyVitalApp:
             textvariable=self.last_updated_var,
             fg=COLORS["sidebar_text_secondary"],
             bg=COLORS["background"],
-            font=("Segoe UI", 9),
+            font=(FONT_FAMILY, 9),
         ).pack(anchor="w", pady=(2, 0))
 
         export_frame = tk.Frame(footer_controls, bg=COLORS["background"])
@@ -953,8 +1117,57 @@ class CyVitalApp:
             relief=tk.FLAT,
             padx=16,
             pady=8,
+            font=FONTS["button"],
         )
         self.export_btn.pack(side=tk.RIGHT)
+        self._attach_button_hover(self.export_btn, emphasis=True)
+
+    def _attach_button_hover(self, button: tk.Button, *, emphasis: bool = False) -> None:
+        base_bg = button["bg"]
+        base_fg = button["fg"]
+        hover_bg = COLORS["accent"] if emphasis else COLORS["panel_border"]
+        hover_fg = COLORS["accent_text"] if emphasis else button["fg"]
+
+        def on_enter(_event: tk.Event) -> None:
+            button.configure(bg=hover_bg, fg=hover_fg, cursor="hand2")
+
+        def on_leave(_event: tk.Event) -> None:
+            button.configure(bg=base_bg, fg=base_fg, cursor="")
+
+        button.bind("<Enter>", on_enter)
+        button.bind("<Leave>", on_leave)
+
+    def _module_supports_history(self) -> bool:
+        return bool(self.current_module and self.current_module.supports_history_navigation())
+
+    def _set_history_buttons_state(self, state: str) -> None:
+        for button in self.history_buttons:
+            button.configure(state=state)
+
+    def _enter_history_navigation(self) -> None:
+        self.history_mode_active = False
+        if not self._module_supports_history():
+            self._set_history_buttons_state(tk.DISABLED)
+            return
+        if self.current_module and self.current_module.enter_history_mode():
+            self.history_mode_active = True
+            self._set_history_buttons_state(tk.NORMAL)
+            if self.canvas:
+                self.canvas.draw_idle()
+        else:
+            self._set_history_buttons_state(tk.DISABLED)
+
+    def _exit_history_navigation(self) -> None:
+        if self.history_mode_active and self.current_module:
+            self.current_module.exit_history_mode()
+        self.history_mode_active = False
+        self._set_history_buttons_state(tk.DISABLED)
+
+    def _shift_history(self, direction: int) -> None:
+        if not self.history_mode_active or not self.current_module:
+            return
+        if self.current_module.shift_history_window(direction) and self.canvas:
+            self.canvas.draw_idle()
 
     def _register_sensors(self, definitions) -> None:
         for definition in definitions:
@@ -967,6 +1180,7 @@ class CyVitalApp:
             self.nav_frame,
             title=definition.title,
             subtitle=definition.subtitle,
+             icon=definition.icon,
             command=lambda key=definition.key: self.set_sensor(key),
         )
         self.nav_items[definition.key] = nav_item
@@ -980,6 +1194,7 @@ class CyVitalApp:
         if not definition:
             return
 
+        self._exit_history_navigation()
         self._stop_streaming()
         self._hide_loading_overlay()
         if self.current_module:
@@ -1036,7 +1251,7 @@ class CyVitalApp:
                 text=message or "No visual available for this sensor yet.",
                 fg=COLORS["text_secondary"],
                 bg=COLORS["panel"],
-                font=("Segoe UI", 12),
+                font=FONTS["body"],
                 justify=tk.CENTER,
                 wraplength=480,
                 padx=20,
@@ -1048,6 +1263,7 @@ class CyVitalApp:
         if not self.current_module:
             return
 
+        self._exit_history_navigation()
         if self.current_module.supports_export:
             self.export_btn.configure(state=tk.NORMAL)
         else:
@@ -1064,6 +1280,7 @@ class CyVitalApp:
             self.status_text_var.set("Offline")
             self._stop_streaming()
             self._hide_loading_overlay()
+            self._set_history_buttons_state(tk.DISABLED)
 
     def _start_streaming(self) -> None:
         if not self.current_module or not self.current_module.supports_streaming or not self.plot_has_figure:
@@ -1226,6 +1443,22 @@ class CyVitalApp:
 
         step()
 
+        if target_var is self.primary_value_var:
+            self._flash_card(self.primary_card)
+        elif target_var is self.secondary_value_var:
+            self._flash_card(self.secondary_card)
+
+    def _flash_card(self, card: tk.Frame) -> None:
+        flash_bg = "#EEF4FF"
+        for widget in (card, *card.winfo_children()):
+            widget.configure(bg=flash_bg)
+
+        def reset() -> None:
+            for widget in (card, *card.winfo_children()):
+                widget.configure(bg=COLORS["panel"])
+
+        card.after(200, reset)
+
     def _extract_numeric_parts(self, text: str) -> Optional[NumericTextParts]:
         match = re.search(r"[-+]?\d*\.?\d+", text)
         if not match:
@@ -1332,9 +1565,11 @@ class CyVitalApp:
             self.toggle_btn.configure(text="Resume")
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Paused")
+            self._enter_history_navigation()
         else:
             if not self.plot_has_figure:
                 return
+            self._exit_history_navigation()
             self._start_streaming()
             self.toggle_btn.configure(text="Pause")
             self.status_indicator.configure(fg=COLORS["status_active"])
