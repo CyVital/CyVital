@@ -40,23 +40,48 @@ from plots.ReactionPlot import ReactionPlot
 from plots.EMGPlot import EMGPlot
 from plots.ECGPlot import ECGPlot
 from plots.PulseOxPlot import PulseOxPlot
+from plots.RespiratoryPlot import RespiratoryPlot
+from plots.BloodPressurePlot import BloodPressurePlot
 
 
 COLORS = {
-    "background": "#f4f7fb",
-    "sidebar": "#ffffff",
-    "sidebar_active": "#e7efff",
-    "sidebar_text_primary": "#1d2742",
-    "sidebar_text_secondary": "#637190",
-    "text_primary": "#1d2742",
-    "text_secondary": "#637190",
-    "panel": "#ffffff",
-    "panel_border": "#d7e3f5",
-    "accent": "#2f6fed",
-    "accent_text": "#ffffff",
-    "status_active": "#2f6fed",
-    "status_inactive": "#94a3c0",
+    "background": "#F5F5F7",
+    "sidebar": "#1F1F1F",
+    "sidebar_hover": "#2A2A2A",
+    "sidebar_active": "#353535",
+    "sidebar_text_primary": "#FFFFFF",
+    "sidebar_text_secondary": "#9EA3AE",
+    "text_primary": "#111111",
+    "text_secondary": "#6B6D71",
+    "panel": "#FFFFFF",
+    "panel_border": "#E3E3E8",
+    "panel_gloss": "#FFFFFFCC",
+    "accent": "#0071E3",
+    "accent_muted": "#4D9FF8",
+    "accent_text": "#FFFFFF",
+    "status_active": "#34C759",
+    "status_inactive": "#8E8E93",
+    "tooltip_bg": "#1F1F1F",
+    "tooltip_text": "#FFFFFF",
 }
+
+BASE_FONT_FAMILY = "Segoe UI"
+# Brace-wrapped so Tk treats the family name as a single token.
+FONT_FAMILY = f"{{{BASE_FONT_FAMILY}}}"
+FONTS = {
+    "brand": (FONT_FAMILY, 20, "bold"),
+    "brand_sub": (FONT_FAMILY, 10),
+    "nav_title": (FONT_FAMILY, 12, "bold"),
+    "nav_sub": (FONT_FAMILY, 10),
+    "header": (FONT_FAMILY, 24, "bold"),
+    "subheader": (FONT_FAMILY, 12),
+    "body": (FONT_FAMILY, 11),
+    "body_bold": (FONT_FAMILY, 11, "bold"),
+    "metric_value": (FONT_FAMILY, 28, "bold"),
+    "metric_label": (FONT_FAMILY, 10),
+    "button": (FONT_FAMILY, 11, "bold"),
+}
+
 
 
 @dataclass
@@ -147,6 +172,9 @@ class ReactionSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"reaction_data_{timestamp}.xlsx"
@@ -189,6 +217,9 @@ class EMGSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"emg_data_{timestamp}.xlsx"
@@ -236,6 +267,9 @@ class ECGSensorModule(SensorModule):
         file_str = f"ecg_data_{timestamp}.xlsx"
         return self.plot.save_data(file_str)
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def cleanup(self) -> None:
         self.plot._close_plot()
 
@@ -284,9 +318,125 @@ class PulseOxSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"pulse_ox_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
+class BloodPressureSensorModule(SensorModule):
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = BloodPressurePlot()
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+    
+    def setup_scope(self, scope: Scope) -> None:
+        scope.setup_device_blood_pressure()
+
+    def update(self, scope: Scope) -> SensorUpdate:
+        samples = scope.get_blood_pressure_samples()
+        t_axis = scope.get_blood_pressure_time_axis(samples)
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        return SensorUpdate(
+            primary_value="--",
+            secondary_value="--",
+            log_message= "",
+            artists=artists_tuple,
+        )
+
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"blood_pressure_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
+
+class RespiratorySensorModule(SensorModule):
+    """Streams respiratory effort data and surfaces respiration metrics."""
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = RespiratoryPlot()
+        self._configured = False
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+
+    def update(self, scope: Scope) -> SensorUpdate:
+        if not self._configured:
+            setup_fn = getattr(scope, "setup_device_respiratory", None)
+            if callable(setup_fn):
+                setup_fn()
+            self._configured = True
+
+        samples = scope.get_respiratory_samples()
+        if hasattr(scope, "get_respiratory_time_axis"):
+            t_axis = scope.get_respiratory_time_axis(samples)
+        else:
+            sample_rate = getattr(self.plot, "sample_rate", 1) or 1
+            t_axis = np.arange(len(samples)) / sample_rate
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        latest_rate = self.plot.latest_rate
+        effort_delta = self.plot.latest_effort_delta
+        window_count = self.plot.window_breath_count
+        rate_window = self.plot.rate_window
+
+        if latest_rate is not None:
+            primary = f"{latest_rate:.1f} BrPM"
+            secondary = f"{(effort_delta or 0.0):.3f} V Δ"
+            log = f"Breaths detected in last {rate_window}s: {window_count}"
+        else:
+            primary = "--"
+            secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Δ"
+            log = "Tracking respiratory baseline..."
+
+        return SensorUpdate(
+            primary_value=primary,
+            secondary_value=secondary,
+            log_message=log,
+            artists=artists_tuple,
+        )
+
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"resp_data_{timestamp}.xlsx"
         return self.plot.save_data(file_str)
 
     def cleanup(self) -> None:
@@ -350,6 +500,23 @@ DEFAULT_SENSORS = [
         secondary_label="Pulse",
         module_factory=PulseOxSensorModule,
     ),
+    SensorDefinition(
+        key="pressure",
+        title="Blood Pressure",
+        subtitle="blood pressure",
+        primary_label="Primary Reading",
+        secondary_label="Secondary Reading",
+        module_factory=BloodPressureSensorModule,
+    ),
+    SensorDefinition(
+        key="resp",
+        title="Respiratory Effort",
+        subtitle="Thoracic Belt",
+        primary_label="Respirations/min",
+        secondary_label="Effort Range",
+        module_factory=RespiratorySensorModule,
+    ),
+
 ]
 
 
@@ -801,6 +968,7 @@ class CyVitalApp:
             self.toggle_btn.configure(text="Resume")
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Paused")
+            self.current_module.pause()
         else:
             self.animation.event_source.start()
             self.animation_running = True

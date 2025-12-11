@@ -36,15 +36,13 @@ class PlotManager:
         ax.figure.canvas.mpl_connect('scroll_event', on_scroll)
 
     def save_data(self, filename):
-        downloads_dir = Path.home() / "Downloads"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
-        workbook = xlsxwriter.Workbook(filename)
+        workbook, destination = self._create_workbook(filename)
         worksheet = workbook.add_worksheet()
         for i in range(0, len(self.selected_samples)):
             worksheet.write(i, 0, self.selected_times[i])
             worksheet.write(i, 1, self.selected_samples[i])
         workbook.close()
-        return filename
+        return str(destination)
 
     def on_press(self, event, ax):
         if event.button == 1:
@@ -82,7 +80,19 @@ class PlotManager:
                                     linewidth=1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
             ax.add_patch(self.selection_rect)
 
+            return mask
+
     def on_scroll(self, event):
         if self.selection_rect:
             self.selection_rect.remove()
             self.selection_rect = None 
+
+    def _create_workbook(self, filename: str):
+        destination = self._prepare_export_path(filename)
+        workbook = xlsxwriter.Workbook(str(destination), {'nan_inf_to_errors': True})
+        return workbook, destination
+    
+    def _prepare_export_path(self, filename: str) -> Path:
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        return downloads_dir / filename

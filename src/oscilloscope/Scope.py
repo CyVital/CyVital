@@ -12,7 +12,14 @@ class Scope:
         self.emg_buffer_size        = 2048
         self.emg_sample_count = 0
         self.ecg_sample_rate = 8192
+        self.ecg_sample_count = 0
         self.pulse_ox_sample_count = 0
+        self.blood_pressure_sample_count = 0
+        self.blood_pressure_sample_rate = 200
+        self.resp_sample_rate = 200
+        self.resp_buffer_size = 2048
+        self.resp_signal_time = 0.0
+
 
         self.MAX_ADDR_7BIT = 0x57
         self.MAX_ADDR_8BIT = self.MAX_ADDR_7BIT << 1  # 0xAE
@@ -75,10 +82,26 @@ class Scope:
         return t_axis
     
     def get_ecg_time_axis(self, samples):
-        return np.linspace(0, len(samples) / self.ecg_sample_rate, len(samples))
+        t_start = self.ecg_sample_count / self.ecg_sample_rate
+        t_axis  = np.arange(len(samples)) / self.ecg_sample_rate + t_start
+        self.ecg_sample_count += len(samples)
+        return t_axis
 
     def get_reaction_time_axis(self, samples):
         return np.linspace(self.reaction_signal_time - len(samples) / self.reaction_sample_rate, self.reaction_signal_time, len(samples))
+    
+    def get_respiratory_samples(self):
+        self.scope.read_status(read_data=True)
+        samples = np.array(self.scope.channels[0].get_data())
+        self.resp_signal_time += len(samples) / self.resp_sample_rate
+        return samples
+
+    def get_respiratory_time_axis(self, samples):
+        return np.linspace(
+            self.resp_signal_time - len(samples) / self.resp_sample_rate,
+            self.resp_signal_time,
+            len(samples),
+        )
     
     def setup_device_emg(self):
 
@@ -112,6 +135,20 @@ class Scope:
         self.scope[1].setup(range=0.5)
         self.scope.scan_shift(sample_rate=self.ecg_sample_rate, buffer_size=4096, configure=True, start=True)
 
+    def setup_device_respiratory(self):
+        self.setup_device_analog()
+        self.device.digital_io.reset()
+        self.device.digital_io.configure()
+
+        self.scope = self.device.analog_input
+        self.scope[0].setup(range=5.0)
+        self.scope.scan_shift(
+            sample_rate=self.resp_sample_rate,
+            buffer_size=self.resp_buffer_size,
+            configure=True,
+            start=True,
+        )
+    
     def setup_device_pulse_ox(self):
 
         self.pulse_ox_sample_count = 0
@@ -158,6 +195,20 @@ class Scope:
     
     def get_pulse_ox_time_axis(self):
         return np.linspace(0, self.pulse_ox_sample_count, self.pulse_ox_sample_count)
+    
+    def get_blood_pressure_samples(self):
+        self.scope.read_status(read_data=True)
+        new_samples = np.array(self.scope.channels[0].get_data())
+        return new_samples
+    
+    def get_blood_pressure_time_axis(self, samples):
+        t_start = self.blood_pressure_sample_count / self.blood_pressure_sample_rate
+        t_axis  = np.arange(len(samples)) / self.blood_pressure_sample_rate + t_start
+        self.blood_pressure_sample_count += len(samples)
+        return t_axis
+
+    def setup_device_blood_pressure(self):
+        self.setup_device_analog()
     
     def reset(self):
         self.device.digital_io.reset()
