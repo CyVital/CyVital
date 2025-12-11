@@ -16,6 +16,9 @@ class Scope:
         self.pulse_ox_sample_count = 0
         self.blood_pressure_sample_count = 0
         self.blood_pressure_sample_rate = 200
+        self.resp_sample_rate = 200
+        self.resp_buffer_size = 2048
+        self.resp_signal_time = 0.0
 
 
         self.MAX_ADDR_7BIT = 0x57
