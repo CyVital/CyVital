@@ -91,7 +91,7 @@ class PlotManager:
 
     def _create_workbook(self, filename: str):
         destination = self._prepare_export_path(filename)
-        workbook = xlsxwriter.Workbook(str(destination))
+        workbook = xlsxwriter.Workbook(str(destination), {'nan_inf_to_errors': True})
         return workbook, destination
     
     def _prepare_export_path(self, filename: str) -> Path:
