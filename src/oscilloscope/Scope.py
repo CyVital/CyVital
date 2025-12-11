@@ -12,6 +12,7 @@ class Scope:
         self.emg_buffer_size        = 2048
         self.emg_sample_count = 0
         self.ecg_sample_rate = 8192
+        self.ecg_sample_count = 0
         self.pulse_ox_sample_count = 0
 
         self.MAX_ADDR_7BIT = 0x57
@@ -75,7 +76,10 @@ class Scope:
         return t_axis
     
     def get_ecg_time_axis(self, samples):
-        return np.linspace(0, len(samples) / self.ecg_sample_rate, len(samples))
+        t_start = self.ecg_sample_count / self.ecg_sample_rate
+        t_axis  = np.arange(len(samples)) / self.ecg_sample_rate + t_start
+        self.ecg_sample_count += len(samples)
+        return t_axis
 
     def get_reaction_time_axis(self, samples):
         return np.linspace(self.reaction_signal_time - len(samples) / self.reaction_sample_rate, self.reaction_signal_time, len(samples))

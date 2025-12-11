@@ -86,3 +86,13 @@ class PlotManager:
         if self.selection_rect:
             self.selection_rect.remove()
             self.selection_rect = None 
+
+    def _create_workbook(self, filename: str):
+        destination = self._prepare_export_path(filename)
+        workbook = xlsxwriter.Workbook(str(destination))
+        return workbook, destination
+    
+    def _prepare_export_path(self, filename: str) -> Path:
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        return downloads_dir / filename

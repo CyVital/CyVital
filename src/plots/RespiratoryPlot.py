@@ -126,4 +126,7 @@ class RespiratoryPlot(PlotManager):
         if avg_interval <= 0:
             return None
         return 60.0 / avg_interval
+    
+    def _close_plot(self):
+        plt.close(self.fig)
 

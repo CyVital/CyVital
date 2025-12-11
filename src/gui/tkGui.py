@@ -44,20 +44,43 @@ from plots.RespiratoryPlot import RespiratoryPlot
 
 
 COLORS = {
-    "background": "#f4f7fb",
-    "sidebar": "#ffffff",
-    "sidebar_active": "#e7efff",
-    "sidebar_text_primary": "#1d2742",
-    "sidebar_text_secondary": "#637190",
-    "text_primary": "#1d2742",
-    "text_secondary": "#637190",
-    "panel": "#ffffff",
-    "panel_border": "#d7e3f5",
-    "accent": "#2f6fed",
-    "accent_text": "#ffffff",
-    "status_active": "#2f6fed",
-    "status_inactive": "#94a3c0",
+    "background": "#F5F5F7",
+    "sidebar": "#1F1F1F",
+    "sidebar_hover": "#2A2A2A",
+    "sidebar_active": "#353535",
+    "sidebar_text_primary": "#FFFFFF",
+    "sidebar_text_secondary": "#9EA3AE",
+    "text_primary": "#111111",
+    "text_secondary": "#6B6D71",
+    "panel": "#FFFFFF",
+    "panel_border": "#E3E3E8",
+    "panel_gloss": "#FFFFFFCC",
+    "accent": "#0071E3",
+    "accent_muted": "#4D9FF8",
+    "accent_text": "#FFFFFF",
+    "status_active": "#34C759",
+    "status_inactive": "#8E8E93",
+    "tooltip_bg": "#1F1F1F",
+    "tooltip_text": "#FFFFFF",
 }
+
+BASE_FONT_FAMILY = "Segoe UI"
+# Brace-wrapped so Tk treats the family name as a single token.
+FONT_FAMILY = f"{{{BASE_FONT_FAMILY}}}"
+FONTS = {
+    "brand": (FONT_FAMILY, 20, "bold"),
+    "brand_sub": (FONT_FAMILY, 10),
+    "nav_title": (FONT_FAMILY, 12, "bold"),
+    "nav_sub": (FONT_FAMILY, 10),
+    "header": (FONT_FAMILY, 24, "bold"),
+    "subheader": (FONT_FAMILY, 12),
+    "body": (FONT_FAMILY, 11),
+    "body_bold": (FONT_FAMILY, 11, "bold"),
+    "metric_value": (FONT_FAMILY, 28, "bold"),
+    "metric_label": (FONT_FAMILY, 10),
+    "button": (FONT_FAMILY, 11, "bold"),
+}
+
 
 
 @dataclass
@@ -237,6 +260,9 @@ class ECGSensorModule(SensorModule):
         file_str = f"ecg_data_{timestamp}.xlsx"
         return self.plot.save_data(file_str)
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def cleanup(self) -> None:
         self.plot._close_plot()
 
@@ -877,6 +903,7 @@ class CyVitalApp:
             self.toggle_btn.configure(text="Resume")
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Paused")
+            self.current_module.pause()
         else:
             self.animation.event_source.start()
             self.animation_running = True
