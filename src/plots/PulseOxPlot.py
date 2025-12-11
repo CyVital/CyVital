@@ -147,6 +147,19 @@ class PulseOxPlot(PlotManager):
         ir_array = np.array(self.all_ir_values)
         self.selected_ir = ir_array[mask]
         self.fig.canvas.draw()
+
+    def save_data(self, filename):
+        workbook, destination = self._create_workbook(filename)
+        worksheet = workbook.add_worksheet()
+        worksheet.write(0, 0, "Times")
+        worksheet.write(0, 1, "Red")
+        worksheet.write(0, 2, "IR")
+        for i in range(1, len(self.selected_samples)):
+            worksheet.write(i, 0, self.selected_times[i])
+            worksheet.write(i, 1, self.selected_samples[i])
+            worksheet.write(i, 2, self.selected_ir[i])
+        workbook.close()
+        return str(destination)
     
     def _close_plot(self):
         plt.close(self.fig)
