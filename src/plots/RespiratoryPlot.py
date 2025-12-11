@@ -28,7 +28,7 @@ class RespiratoryPlot(PlotManager):
         self.latest_effort_delta: float | None = None
         self.window_breath_count: int = 0
 
-        self.fig, (self.ax_wave, self.ax_rate) = plt.subplots(2, 1, figsize=(10, 7))
+        self.fig, (self.ax_wave, self.ax_rate) = plt.subplots(2, 1, figsize=(15, 8))
         self.fig.suptitle("Respiratory Effort Monitor")
 
         self.line_wave, = self.ax_wave.plot([], [], color="#1f77b4", linewidth=1.5)

@@ -30,7 +30,7 @@ class ECGPlot(PlotManager):
         self._setup_plot()
 
     def _setup_plot(self):
-        self.fig, (self.ax1, self.ax3) = plt.subplots(2, 1, figsize=(10, 8))
+        self.fig, (self.ax1, self.ax3) = plt.subplots(2, 1, figsize=(15, 8))
         self.fig.suptitle('Heart Rate Monitor')
 
         # Set up the waveform plot

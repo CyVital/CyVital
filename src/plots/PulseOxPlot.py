@@ -35,11 +35,10 @@ class PulseOxPlot(PlotManager):
         self._setup_plot()
 
     def _setup_plot(self):
-        self.fig, (self.ax_dig, self.ax) = plt.subplots(2, 1, figsize=(10,8))
+        self.fig, (self.ax_dig, self.ax) = plt.subplots(2, 1, figsize=(15,8))
         
         self.line_red_dig, = self.ax_dig.step([], [], where='mid', label='Red Bits')
         self.ax_dig.set_title("Digital Signal")
-        self.ax_dig.set_xlabel("Time step")
         self.ax_dig.set_ylabel("Bit Value")
         self.ax_dig.set_xlim(0, self.window_size)
         self.ax_dig.set_ylim(0, 1.1)
