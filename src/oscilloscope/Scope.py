@@ -14,6 +14,9 @@ class Scope:
         self.ecg_sample_rate = 8192
         self.ecg_sample_count = 0
         self.pulse_ox_sample_count = 0
+        self.blood_pressure_sample_count = 0
+        self.blood_pressure_sample_rate = 200
+
 
         self.MAX_ADDR_7BIT = 0x57
         self.MAX_ADDR_8BIT = self.MAX_ADDR_7BIT << 1  # 0xAE
@@ -189,6 +192,20 @@ class Scope:
     
     def get_pulse_ox_time_axis(self):
         return np.linspace(0, self.pulse_ox_sample_count, self.pulse_ox_sample_count)
+    
+    def get_blood_pressure_samples(self):
+        self.scope.read_status(read_data=True)
+        new_samples = np.array(self.scope.channels[0].get_data())
+        return new_samples
+    
+    def get_blood_pressure_time_axis(self, samples):
+        t_start = self.blood_pressure_sample_count / self.blood_pressure_sample_rate
+        t_axis  = np.arange(len(samples)) / self.blood_pressure_sample_rate + t_start
+        self.blood_pressure_sample_count += len(samples)
+        return t_axis
+
+    def setup_device_blood_pressure(self):
+        self.setup_device_analog()
     
     def reset(self):
         self.device.digital_io.reset()

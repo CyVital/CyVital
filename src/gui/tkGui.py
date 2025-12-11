@@ -41,6 +41,7 @@ from plots.EMGPlot import EMGPlot
 from plots.ECGPlot import ECGPlot
 from plots.PulseOxPlot import PulseOxPlot
 from plots.RespiratoryPlot import RespiratoryPlot
+from plots.BloodPressurePlot import BloodPressurePlot
 
 
 COLORS = {
@@ -328,6 +329,50 @@ class PulseOxSensorModule(SensorModule):
     def cleanup(self) -> None:
         self.plot._close_plot()
 
+class BloodPressureSensorModule(SensorModule):
+
+    supports_export = True
+
+    def __init__(self) -> None:
+        self.plot = BloodPressurePlot()
+
+    def get_figure(self) -> Optional[Figure]:
+        return self.plot.fig
+    
+    def setup_scope(self, scope: Scope) -> None:
+        scope.setup_device_blood_pressure()
+
+    def update(self, scope: Scope) -> SensorUpdate:
+        samples = scope.get_blood_pressure_samples()
+        t_axis = scope.get_blood_pressure_time_axis(samples)
+
+        artists = self.plot.update_plot(t_axis, samples)
+        if artists is None:
+            artists_tuple: Tuple[object, ...] = tuple()
+        elif isinstance(artists, tuple):
+            artists_tuple = artists
+        elif isinstance(artists, list):
+            artists_tuple = tuple(artists)
+        else:
+            artists_tuple = (artists,)
+
+        return SensorUpdate(
+            primary_value="--",
+            secondary_value="--",
+            log_message= "",
+            artists=artists_tuple,
+        )
+
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        file_str = f"blood_pressure_data_{timestamp}.xlsx"
+        return self.plot.save_data(file_str)
+
+    def cleanup(self) -> None:
+        self.plot._close_plot()
 
 class RespiratorySensorModule(SensorModule):
     """Streams respiratory effort data and surfaces respiration metrics."""
@@ -454,6 +499,14 @@ DEFAULT_SENSORS = [
         primary_label="SpO₂",
         secondary_label="Pulse",
         module_factory=PulseOxSensorModule,
+    ),
+    SensorDefinition(
+        key="pressure",
+        title="Blood Pressure",
+        subtitle="blood pressure",
+        primary_label="Primary Reading",
+        secondary_label="Secondary Reading",
+        module_factory=BloodPressureSensorModule,
     ),
     SensorDefinition(
         key="resp",
