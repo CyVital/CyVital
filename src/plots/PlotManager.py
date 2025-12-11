@@ -82,6 +82,8 @@ class PlotManager:
                                     linewidth=1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
             ax.add_patch(self.selection_rect)
 
+            return mask
+
     def on_scroll(self, event):
         if self.selection_rect:
             self.selection_rect.remove()

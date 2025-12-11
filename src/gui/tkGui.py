@@ -171,6 +171,9 @@ class ReactionSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"reaction_data_{timestamp}.xlsx"
@@ -213,6 +216,9 @@ class EMGSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"emg_data_{timestamp}.xlsx"
@@ -311,6 +317,9 @@ class PulseOxSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"pulse_ox_data_{timestamp}.xlsx"
@@ -377,6 +386,9 @@ class RespiratorySensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def pause(self) -> None:
+        self.plot.plot_all()
+    
     def save_data(self) -> Optional[str]:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_str = f"resp_data_{timestamp}.xlsx"

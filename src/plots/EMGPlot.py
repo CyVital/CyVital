@@ -19,6 +19,7 @@ class EMGPlot(PlotManager):
 
         self.env_time_vals, self.raw_time_vals, self.env_vals, self.raw_vals = [], [], [], []
         self.sample_count = 0
+        self.window_size = 20
 
         self._setup_plot()
 
@@ -51,22 +52,31 @@ class EMGPlot(PlotManager):
 
     def update_plot(self, t_axis, samples):
 
+        self.raw_time_vals.extend(t_axis)
+        self.raw_vals.extend(samples)
+        
         filt = self._bandpass_filter(samples, self.sample_rate)
         rect = np.abs(filt)
         env  = self._moving_average(rect)
         
-        self.raw_time_vals.extend(t_axis)
-        self.raw_vals.extend(samples)
         self.env_time_vals.append(t_axis[-1])
         self.env_vals.append(env[-1])
 
-        self.line_raw.set_data(self.raw_time_vals, self.raw_vals)
-        self.line_env.set_data(self.env_time_vals, self.env_vals)
+        self.line_raw.set_data(t_axis, samples)
+        self.ax_raw.set_xlim(t_axis[0], t_axis[-1])
 
-        self.ax_raw.set_xlim(self.raw_time_vals[0], self.raw_time_vals[-1])
-        self.ax_env.set_xlim(self.env_time_vals[0], self.env_time_vals[-1])
+        self.line_env.set_data(self.env_time_vals[-self.window_size:], self.env_vals[-self.window_size:])
+
+        try:
+            self.ax_env.set_xlim(self.env_time_vals[-self.window_size], self.env_time_vals[-1])
+        except IndexError:
+             self.ax_env.set_xlim(self.env_time_vals[0], self.env_time_vals[-1])
 
         return self.line_raw, self.line_env
+    
+    def plot_all(self):
+        self.line_raw.set_data(self.raw_time_vals, self.raw_vals)
+        self.line_env.set_data(self.env_time_vals, self.env_vals)
     
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax_raw)

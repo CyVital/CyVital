@@ -20,8 +20,11 @@ class PulseOxPlot(PlotManager):
         self.ir_values  = deque([0]*self.window_size, maxlen=self.window_size)
         self.all_red_values = []
         self.all_ir_values = []
+        self.all_time = []
 
         self.all_bits = []
+
+        self.selected_ir = [] #selected_samples of PlotManager is selected red
 
 
         # --- Band‑pass filter design ---
@@ -59,9 +62,9 @@ class PulseOxPlot(PlotManager):
         self.zoom2 = self.zoom_around_cursor(self.ax)
         self.pan_handler = panhandler(self.fig)
 
-        # self.fig.canvas.mpl_connect('button_press_event', self.on_press)
-        # self.fig.canvas.mpl_connect('button_release_event', self.on_release)
-        # self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
     
     def update_plot(self, time_axis, samples):
         red = ((samples[0]<<16)|(samples[1]<<8)|samples[2]) & 0x03FFFF
@@ -70,19 +73,20 @@ class PulseOxPlot(PlotManager):
         self.ir_values.append(ir)
         self.all_red_values.append(red)
         self.all_ir_values.append(ir)
+        self.all_time = time_axis
 
         #convert to binary
         bits = [(samples[0] >> i) & 1 for i in range(7, -1, -1)] + [(samples[1] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[2] >> i) & 1 for i in range(7, -1, -1)] + [(samples[3] >> i) & 1 for i in range(7, -1, -1)] + [(samples[4] >> i) & 1 for i in range(7, -1, -1)] +  [(samples[5] >> i) & 1 for i in range(7, -1, -1)]
         self.all_bits.extend(bits)
 
         #set binary data
-        self.line_red_dig.set_data(range(len(self.all_bits)), self.all_bits)
+        self.line_red_dig.set_data(range(len(self.all_bits) - self.window_size, len(self.all_bits)), self.all_bits[-self.window_size:])
         self.ax_dig.set_xlim(len(self.all_bits) - len(bits), len(self.all_bits))
 
         # set data
         # xs = range(len(self.red_values))
-        self.line_red.set_data(range(len(time_axis)), self.all_red_values)
-        self.line_ir.set_data(range(len(time_axis)), self.all_ir_values)
+        self.line_red.set_data(time_axis[-self.window_size:], self.all_red_values[-self.window_size:])
+        self.line_ir.set_data(time_axis[-self.window_size:], self.all_ir_values[-self.window_size:])
 
         # compute vitals
         raw_bpm = self.estimate_bpm(self.ir_values)
@@ -94,7 +98,7 @@ class PulseOxPlot(PlotManager):
         self.ax.set_ylim(0, current_max * 1.1)
 
         #rescale x
-        self.ax.set_xlim(time_axis[-1] - len(self.red_values), time_axis[-1])
+        self.ax.set_xlim(time_axis[-1] - self.window_size, time_axis[-1])
 
         return self.line_red, self.line_ir, self.line_red_dig
     
@@ -130,11 +134,18 @@ class PulseOxPlot(PlotManager):
             return 110.0 - 25.0 * R
         return None
     
+    def plot_all(self):
+        self.line_red_dig.set_data(range(len(self.all_bits)), self.all_bits)
+        self.line_red.set_data(self.all_time, self.all_red_values)
+        self.line_ir.set_data(self.all_time, self.all_ir_values)
+    
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax)
 
     def on_release(self, event):
-        PlotManager.on_release(self, event, self.ax, self.time, self.red_values)
+        mask = PlotManager.on_release(self, event, self.ax, self.all_time, self.all_red_values)
+        ir_array = np.array(self.all_ir_values)
+        self.selected_ir = ir_array[mask]
         self.fig.canvas.draw()
     
     def _close_plot(self):

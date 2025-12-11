@@ -22,6 +22,8 @@ class ReactionPlot(PlotManager):
         self.full_time = []
         self.full_samples = []
 
+        self.window_size = 30000
+
 
         self._setup_plot()
 
@@ -63,8 +65,15 @@ class ReactionPlot(PlotManager):
         self.full_time.extend(t_axis)
         self.full_samples.extend(samples)
 
-        self.line_signal.set_data(self.full_time, self.full_samples)
-        self.ax_signal.set_xlim(0, self.full_time[-1])
+        try:
+            self.line_signal.set_data(self.full_time[-self.window_size:], self.full_samples[-self.window_size:])
+        except IndexError:
+            self.line_signal.set_data(self.full_time, self.full_samples)
+
+        try:
+            self.ax_signal.set_xlim(self.full_time[-self.window_size], self.full_time[-1])
+        except IndexError:
+            self.ax_signal.set_xlim(0, self.full_time[-1])
 
         # Start cue if delay has passed
         now = time.time()
@@ -93,6 +102,9 @@ class ReactionPlot(PlotManager):
         return self.line_signal, self.cue_text
     
     
+    def plot_all(self):
+        self.line_signal.set_data(self.full_time, self.full_samples)
+    
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax_signal)
 
@@ -102,3 +114,4 @@ class ReactionPlot(PlotManager):
 
     def _close_plot(self):
         plt.close(self.fig)
+
