@@ -127,6 +127,10 @@ class RespiratoryPlot(PlotManager):
             return None
         return 60.0 / avg_interval
     
+    def shift_review_window(self, direction):
+        self.ax_rate.set_xlim(*(limit + (direction * 10) for limit in self.ax_rate.get_xlim()))
+        return True
+    
     def plot_all(self):
         pass
     

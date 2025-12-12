@@ -29,11 +29,11 @@ class Scope:
 
         try:
             self.device.open()
+            self.setup_device_reaction()
         except:
             print("Device not found")
-
-        self.setup_device_reaction()
     
+    #---Device setup--------------------------------------------------------------------------------------------
     def setup_device_analog(self):
         try:
             self.device.analog_io[0][1].value = 3.3
@@ -58,23 +58,161 @@ class Scope:
         except:
             print("Cannot setup reaction scope")
 
-    # Maybe the get_{sensor}_samples should all be the same get_analog_samples function since they're the same???
+    def setup_device_emg(self):
+
+        try:
+            self.setup_device_analog()
+
+            # Optional DIO setup
+            self.device.digital_io.reset()
+            for i in range(4):
+                self.device.digital_io.channels[i].enabled = True
+                self.device.digital_io.channels[i].output_state = bool((2 >> i) & 1)
+            self.device.digital_io.configure()
+
+            # Oscilloscope setup
+            self.scope = self.device.analog_input
+            self.scope[0].setup(range=0.01)
+            self.scope.scan_shift(sample_rate=self.emg_sample_rate,
+                            buffer_size=self.emg_buffer_size,
+                            configure=True,
+                            start=True)
+        except:
+            print("Cannot set up emg scope")
+
+    def setup_device_ecg(self):
+        try:
+            self.setup_device_analog()
+
+            self.wavegen = self.device.analog_output
+            self.wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
+            self.wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
+            self.wavegen[0].configure(start=True)
+
+            self.scope = self.device.analog_input
+            self.scope[0].setup(range=0.5)
+            self.scope[1].setup(range=0.5)
+            self.scope.scan_shift(sample_rate=self.ecg_sample_rate, buffer_size=4096, configure=True, start=True)
+        except:
+            print("Cannot set up ecg scope")
+
+    def setup_device_pulse_ox(self):
+
+        self.pulse_ox_sample_count = 0
+
+        try:
+            self.reset()
+
+            # Power
+            self.device.analog_io[0][1].value = 3.3
+            self.device.analog_io[0][0].value = True
+            self.device.analog_io.master_enable = True
+
+            # I2C
+            self.i2c = Protocols.I2C(self.device)
+            self.i2c.setup(pin_scl=6, pin_sda=7, rate=100_000)
+
+            # Soft reset + mode check
+            self.i2c.write(self.MAX_ADDR_8BIT, bytes([0x09, 0x40]))
+            time.sleep(0.1)
+            self.i2c.write(self.MAX_ADDR_8BIT, bytes([0x09]))
+            mode, nak = self.i2c.read(self.MAX_ADDR_8BIT, 1)
+            print(f"I2C NACK at index {nak}")
+            print(f"MODE_CONFIG readback: 0x{mode[0]:02X}")
+
+            # Configure sensor & FIFO
+            cfg = [
+                (0x09, 0x03), (0x0A, 0x27),
+                (0x0C, 0x24), (0x0D, 0x24),
+                (0x08, 0x00), (0x06, 0x00),
+                (0x07, 0x00), (0x05, 0x00),
+            ]
+            for reg, val in cfg:
+                self.i2c.write(self.MAX_ADDR_8BIT, bytes([reg, val]))
+            time.sleep(0.2)
+        except:
+            print("Cannot set up pulse ox scope")
+
+    def setup_device_blood_pressure(self):
+        try:
+            self.setup_device_analog()
+        except:
+            print("Cannot set up blood pressure scope")
+    
+    def setup_device_respiratory(self):
+        try:
+            self.setup_device_analog()
+            self.device.digital_io.reset()
+            self.device.digital_io.configure()
+
+            self.scope = self.device.analog_input
+            self.scope[0].setup(range=5.0)
+            self.scope.scan_shift(
+                sample_rate=self.resp_sample_rate,
+                buffer_size=self.resp_buffer_size,
+                configure=True,
+                start=True,
+            )
+        except:
+            print("Cannot set up respiratory scope")
+    
+    # ---Get samples-----------------------------------------------------------------------------------------------
     def get_reaction_samples(self):
-        self.scope.read_status(read_data=True)
-        samples = np.array(self.scope.channels[0].get_data())
-        self.reaction_signal_time += len(samples) / self.reaction_sample_rate
-        return samples
+        try:
+            self.scope.read_status(read_data=True)
+            samples = np.array(self.scope.channels[0].get_data())
+            self.reaction_signal_time += len(samples) / self.reaction_sample_rate
+            return samples
+        except:
+            raise IOError("Scope not attached.")
     
     def get_emg_samples(self):
-        self.scope.read_status(read_data=True)
-        raw = np.array(self.scope.channels[0].get_data())
-        return raw
+        try:
+            self.scope.read_status(read_data=True)
+            raw = np.array(self.scope.channels[0].get_data())
+            return raw
+        except:
+            raise IOError("Scope not attached.")
     
     def get_ecg_samples(self):
-        self.scope.read_status(read_data=True)
-        new_samples = np.array(self.scope.channels[0].get_data())
-        return new_samples
+        try:
+            self.scope.read_status(read_data=True)
+            new_samples = np.array(self.scope.channels[0].get_data())
+            return new_samples
+        except:
+            raise IOError("Scope not attached.")
+        
+    def get_pulse_ox_samples(self):
+        try:
+            samples, nak = self.i2c.write_read(self.MAX_ADDR_8BIT, bytes([0x07]), 6)
+            if nak == 0:
+                self.pulse_ox_sample_count += 1
+            else:
+                print(f"I2C NACK at index {nak}")
+                return None
+
+            return samples
+        except:
+            raise IOError("Scope not attached.")
     
+    def get_blood_pressure_samples(self):
+        try:
+            self.scope.read_status(read_data=True)
+            new_samples = np.array(self.scope.channels[0].get_data())
+            return new_samples
+        except:
+            raise IOError("Scope not attached.")
+    
+    def get_respiratory_samples(self):
+        try:
+            self.scope.read_status(read_data=True)
+            samples = np.array(self.scope.channels[0].get_data())
+            self.resp_signal_time += len(samples) / self.resp_sample_rate
+            return samples
+        except:
+            raise IOError("Scope not attached.")
+    
+    #----Get time axis--------------------------------------------------------------------------------------------
     def get_emg_time_axis(self, samples):
         t_start = self.emg_sample_count / self.emg_sample_rate
         t_axis  = np.arange(len(samples)) / self.emg_sample_rate + t_start
@@ -89,12 +227,6 @@ class Scope:
 
     def get_reaction_time_axis(self, samples):
         return np.linspace(self.reaction_signal_time - len(samples) / self.reaction_sample_rate, self.reaction_signal_time, len(samples))
-    
-    def get_respiratory_samples(self):
-        self.scope.read_status(read_data=True)
-        samples = np.array(self.scope.channels[0].get_data())
-        self.resp_signal_time += len(samples) / self.resp_sample_rate
-        return samples
 
     def get_respiratory_time_axis(self, samples):
         return np.linspace(
@@ -103,103 +235,8 @@ class Scope:
             len(samples),
         )
     
-    def setup_device_emg(self):
-
-        self.setup_device_analog()
-
-        # Optional DIO setup
-        self.device.digital_io.reset()
-        for i in range(4):
-            self.device.digital_io.channels[i].enabled = True
-            self.device.digital_io.channels[i].output_state = bool((2 >> i) & 1)
-        self.device.digital_io.configure()
-
-        # Oscilloscope setup
-        self.scope = self.device.analog_input
-        self.scope[0].setup(range=0.01)
-        self.scope.scan_shift(sample_rate=self.emg_sample_rate,
-                         buffer_size=self.emg_buffer_size,
-                         configure=True,
-                         start=True)
-
-    def setup_device_ecg(self):
-        self.setup_device_analog()
-
-        self.wavegen = self.device.analog_output
-        self.wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
-        self.wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
-        self.wavegen[0].configure(start=True)
-
-        self.scope = self.device.analog_input
-        self.scope[0].setup(range=0.5)
-        self.scope[1].setup(range=0.5)
-        self.scope.scan_shift(sample_rate=self.ecg_sample_rate, buffer_size=4096, configure=True, start=True)
-
-    def setup_device_respiratory(self):
-        self.setup_device_analog()
-        self.device.digital_io.reset()
-        self.device.digital_io.configure()
-
-        self.scope = self.device.analog_input
-        self.scope[0].setup(range=5.0)
-        self.scope.scan_shift(
-            sample_rate=self.resp_sample_rate,
-            buffer_size=self.resp_buffer_size,
-            configure=True,
-            start=True,
-        )
-    
-    def setup_device_pulse_ox(self):
-
-        self.pulse_ox_sample_count = 0
-
-        self.reset()
-
-        # Power
-        self.device.analog_io[0][1].value = 3.3
-        self.device.analog_io[0][0].value = True
-        self.device.analog_io.master_enable = True
-
-        # I2C
-        self.i2c = Protocols.I2C(self.device)
-        self.i2c.setup(pin_scl=6, pin_sda=7, rate=100_000)
-
-        # Soft reset + mode check
-        self.i2c.write(self.MAX_ADDR_8BIT, bytes([0x09, 0x40]))
-        time.sleep(0.1)
-        self.i2c.write(self.MAX_ADDR_8BIT, bytes([0x09]))
-        mode, nak = self.i2c.read(self.MAX_ADDR_8BIT, 1)
-        print(f"I2C NACK at index {nak}")
-        print(f"MODE_CONFIG readback: 0x{mode[0]:02X}")
-
-        # Configure sensor & FIFO
-        cfg = [
-            (0x09, 0x03), (0x0A, 0x27),
-            (0x0C, 0x24), (0x0D, 0x24),
-            (0x08, 0x00), (0x06, 0x00),
-            (0x07, 0x00), (0x05, 0x00),
-        ]
-        for reg, val in cfg:
-            self.i2c.write(self.MAX_ADDR_8BIT, bytes([reg, val]))
-        time.sleep(0.2)
-    
-    def get_pulse_ox_samples(self):
-        samples, nak = self.i2c.write_read(self.MAX_ADDR_8BIT, bytes([0x07]), 6)
-        if nak == 0:
-            self.pulse_ox_sample_count += 1
-        else:
-            print(f"I2C NACK at index {nak}")
-            return None
-
-        return samples
-    
     def get_pulse_ox_time_axis(self):
         return np.linspace(0, self.pulse_ox_sample_count, self.pulse_ox_sample_count)
-    
-    def get_blood_pressure_samples(self):
-        self.scope.read_status(read_data=True)
-        new_samples = np.array(self.scope.channels[0].get_data())
-        return new_samples
     
     def get_blood_pressure_time_axis(self, samples):
         t_start = self.blood_pressure_sample_count / self.blood_pressure_sample_rate
@@ -207,9 +244,7 @@ class Scope:
         self.blood_pressure_sample_count += len(samples)
         return t_axis
 
-    def setup_device_blood_pressure(self):
-        self.setup_device_analog()
-    
+    # ---Other helpers-----------------------------------------------------------------------------------------
     def reset(self):
         self.device.digital_io.reset()
         self.device.digital_io.configure()

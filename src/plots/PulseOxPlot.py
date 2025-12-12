@@ -138,6 +138,11 @@ class PulseOxPlot(PlotManager):
         self.line_red.set_data(self.all_time, self.all_red_values)
         self.line_ir.set_data(self.all_time, self.all_ir_values)
     
+    def shift_review_window(self, direction):
+        self.ax.set_xlim(*(limit + (direction * 20) for limit in self.ax.get_xlim()))
+        self.ax_dig.set_xlim(*(limit + (direction * 20) for limit in self.ax_dig.get_xlim()))
+        return True
+    
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax)
 

@@ -66,6 +66,11 @@ class BloodPressurePlot(PlotManager):\
         self.line_raw.set_data(self.full_times, self.raw_volts)
         self.line_pressure.set_data(self.full_times, self.pressures)
     
+    def shift_review_window(self, direction):
+        self.ax_raw.set_xlim(*(limit + (direction * 50) for limit in self.ax_raw.get_xlim()))
+        self.ax_pressure.set_xlim(*(limit + (direction * 50) for limit in self.ax_pressure.get_xlim()))
+        return True
+    
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax_raw)
 

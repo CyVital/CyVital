@@ -115,6 +115,9 @@ class ReactionPlot(PlotManager):
 
         return self.line_signal, self.cue_text
     
+    def shift_review_window(self, direction):
+        self.ax_signal.set_xlim(*(limit + (direction * 20) for limit in self.ax_signal.get_xlim()))
+        return True
     
     def plot_all(self):
         self.line_signal.set_data(self.full_time, self.full_samples)
@@ -179,7 +182,7 @@ class ReactionPlot(PlotManager):
 
         workbook.close()
         return str(destination)
-
+    
     def _close_plot(self):
         plt.close(self.fig)
 

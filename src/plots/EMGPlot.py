@@ -78,6 +78,11 @@ class EMGPlot(PlotManager):
         self.line_raw.set_data(self.raw_time_vals, self.raw_vals)
         self.line_env.set_data(self.env_time_vals, self.env_vals)
     
+    def shift_review_window(self, direction):
+        self.ax_raw.set_xlim(*(limit + (direction * 10) for limit in self.ax_raw.get_xlim()))
+        self.ax_env.set_xlim(*(limit + (direction * 10) for limit in self.ax_env.get_xlim()))
+        return True
+    
     def on_press(self, event):
         PlotManager.on_press(self, event, self.ax_raw)
 
