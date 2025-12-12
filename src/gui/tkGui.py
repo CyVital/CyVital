@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from statistics import mean
 from typing import Callable, Dict, Optional, Tuple
 import time
+import numpy as np
 
 from matplotlib.animation import FuncAnimation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -136,34 +137,43 @@ class ReactionSensorModule(SensorModule):
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
+    
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
 
     def update(self, scope: Scope) -> SensorUpdate:
-        samples = scope.get_reaction_samples()
-        t_axis = scope.get_reaction_time_axis(samples)
+        try:
+            samples = scope.get_reaction_samples()
+            t_axis = scope.get_reaction_time_axis(samples)
 
-        artists = self.plot.update_plot(t_axis, samples)
-        if artists is None:
-            artists_tuple: Tuple[object, ...] = tuple()
-        elif isinstance(artists, tuple):
-            artists_tuple = artists
-        elif isinstance(artists, list):
-            artists_tuple = tuple(artists)
-        else:
-            artists_tuple = (artists,)
+            artists = self.plot.update_plot(t_axis, samples)
+            if artists is None:
+                artists_tuple: Tuple[object, ...] = tuple()
+            elif isinstance(artists, tuple):
+                artists_tuple = artists
+            elif isinstance(artists, list):
+                artists_tuple = tuple(artists)
+            else:
+                artists_tuple = (artists,)
 
-        if self.plot.reaction_times:
-            latest = self.plot.reaction_times[-1]
-            average = mean(self.plot.reaction_times)
-            primary = f"{latest:.1f} ms"
-            secondary = f"{average:.1f} ms"
-            log = (
-                f"Trials recorded: {len(self.plot.reaction_times)} | "
-                f"Average reaction: {average:.1f} ms"
-            )
-        else:
+            if self.plot.reaction_times:
+                latest = self.plot.reaction_times[-1]
+                average = mean(self.plot.reaction_times)
+                primary = f"{latest:.1f} ms"
+                secondary = f"{average:.1f} ms"
+                log = (
+                    f"Trials recorded: {len(self.plot.reaction_times)} | "
+                    f"Average reaction: {average:.1f} ms"
+                )
+            else:
+                primary = "--"
+                secondary = "--"
+                log = "Waiting for first reaction sample"
+        except IOError:
             primary = "--"
             secondary = "--"
-            log = "Waiting for first reaction sample"
+            log = "No scope"
+            artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
             primary_value=primary,
@@ -196,24 +206,33 @@ class EMGSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         scope.setup_device_emg()
 
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+    
     def update(self, scope: Scope) -> SensorUpdate:
-        samples = scope.get_emg_samples()
-        t_axis = scope.get_emg_time_axis(samples)
+        try:
+            samples = scope.get_emg_samples()
+            t_axis = scope.get_emg_time_axis(samples)
 
-        artists = self.plot.update_plot(t_axis, samples)
-        if artists is None:
+            artists = self.plot.update_plot(t_axis, samples)
+            if artists is None:
+                artists_tuple: Tuple[object, ...] = tuple()
+            elif isinstance(artists, tuple):
+                artists_tuple = artists
+            elif isinstance(artists, list):
+                artists_tuple = tuple(artists)
+            else:
+                artists_tuple = (artists,)
+
+            msg = ""
+        except IOError:
+            msg = "Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
-        elif isinstance(artists, tuple):
-            artists_tuple = artists
-        elif isinstance(artists, list):
-            artists_tuple = tuple(artists)
-        else:
-            artists_tuple = (artists,)
 
         return SensorUpdate(
             primary_value="--",
             secondary_value="--",
-            log_message= "",
+            log_message= msg,
             artists=artists_tuple,
         )
 
@@ -241,24 +260,50 @@ class ECGSensorModule(SensorModule):
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+    
     def update(self, scope: Scope) -> SensorUpdate:
-        samples = scope.get_ecg_samples()
-        t_axis = scope.get_ecg_time_axis(samples) 
+        try:
+            samples = scope.get_ecg_samples()
+            t_axis = scope.get_ecg_time_axis(samples) 
 
-        artists = self.plot.update_plot(t_axis, samples)
-        if artists is None:
+            artists = self.plot.update_plot(t_axis, samples)
+            if artists is None:
+                artists_tuple: Tuple[object, ...] = tuple()
+            elif isinstance(artists, tuple):
+                artists_tuple = artists
+            elif isinstance(artists, list):
+                artists_tuple = tuple(artists)
+            else:
+                artists_tuple = (artists,)
+
+            latest = self.plot.latest_bpm
+            average = self.plot.avg_bpm
+            if latest is not None:
+                primary = f"{latest:.1f} BPM"
+                secondary_value = average if average is not None else latest
+                secondary = f"{secondary_value:.1f} BPM"
+                elapsed = self.plot.time_values[-1] if self.plot.time_values else 0.0
+                log = (
+                    f"Elapsed time: {elapsed:.1f}s | Peaks in {self.plot.window_duration:.0f}s window: "
+                    f"{len(self.plot.recent_peak_times)}"
+                )
+            else:
+                primary = "--"
+                secondary = "--"
+                log = "Detecting ECG peaks..."
+        except IOError:
+            primary = "--"
+            secondary = "--"
+            log = "Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
-        elif isinstance(artists, tuple):
-            artists_tuple = artists
-        elif isinstance(artists, list):
-            artists_tuple = tuple(artists)
-        else:
-            artists_tuple = (artists,)
+
 
         return SensorUpdate(
-            primary_value="--",
-            secondary_value="--",
-            log_message= "",
+            primary_value=primary,
+            secondary_value=secondary,
+            log_message= log,
             artists=artists_tuple,
         )
 
@@ -286,30 +331,39 @@ class PulseOxSensorModule(SensorModule):
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+    
     def update(self, scope: Scope) -> SensorUpdate:
-        samples = scope.get_pulse_ox_samples()
-        t_axis = scope.get_pulse_ox_time_axis()
+        try:
+            samples = scope.get_pulse_ox_samples()
+            t_axis = scope.get_pulse_ox_time_axis()
 
-        artists = self.plot.update_plot(t_axis, samples)
-        if artists is None:
-            artists_tuple: Tuple[object, ...] = tuple()
-        elif isinstance(artists, tuple):
-            artists_tuple = artists
-        elif isinstance(artists, list):
-            artists_tuple = tuple(artists)
-        else:
-            artists_tuple = (artists,)
+            artists = self.plot.update_plot(t_axis, samples)
+            if artists is None:
+                artists_tuple: Tuple[object, ...] = tuple()
+            elif isinstance(artists, tuple):
+                artists_tuple = artists
+            elif isinstance(artists, list):
+                artists_tuple = tuple(artists)
+            else:
+                artists_tuple = (artists,)
 
-        if self.plot.bpm and self.plot.spo2:
-            primary = f"{self.plot.spo2:.1f} %"
-            secondary = f"{self.plot.bpm:.0f} bpm"
-            log = (
-                f"bpm and spo2"
-            )
-        else:
+            if self.plot.bpm and self.plot.spo2:
+                primary = f"{self.plot.spo2:.1f} %"
+                secondary = f"{self.plot.bpm:.0f} bpm"
+                log = (
+                    f"bpm and spo2"
+                )
+            else:
+                primary = "--"
+                secondary = "--"
+                log = "Waiting for first pulse ox sample"
+        except IOError:
             primary = "--"
             secondary = "--"
-            log = "Waiting for first pulse ox sample"
+            log = "Cannot read scope"
+            artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
             primary_value=primary,
@@ -342,24 +396,33 @@ class BloodPressureSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         scope.setup_device_blood_pressure()
 
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+    
     def update(self, scope: Scope) -> SensorUpdate:
-        samples = scope.get_blood_pressure_samples()
-        t_axis = scope.get_blood_pressure_time_axis(samples)
+        try:
+            samples = scope.get_blood_pressure_samples()
+            t_axis = scope.get_blood_pressure_time_axis(samples)
 
-        artists = self.plot.update_plot(t_axis, samples)
-        if artists is None:
+            artists = self.plot.update_plot(t_axis, samples)
+            if artists is None:
+                artists_tuple: Tuple[object, ...] = tuple()
+            elif isinstance(artists, tuple):
+                artists_tuple = artists
+            elif isinstance(artists, list):
+                artists_tuple = tuple(artists)
+            else:
+                artists_tuple = (artists,)
+
+            log = "Displaying data"
+        except IOError:
+            log = "Unable to read scope"
             artists_tuple: Tuple[object, ...] = tuple()
-        elif isinstance(artists, tuple):
-            artists_tuple = artists
-        elif isinstance(artists, list):
-            artists_tuple = tuple(artists)
-        else:
-            artists_tuple = (artists,)
 
         return SensorUpdate(
             primary_value="--",
             secondary_value="--",
-            log_message= "",
+            log_message= log,
             artists=artists_tuple,
         )
 
@@ -386,6 +449,9 @@ class RespiratorySensorModule(SensorModule):
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
 
+    def shift_history_window(self, direction: int) -> bool:
+        return self.plot.shift_review_window(direction)
+    
     def update(self, scope: Scope) -> SensorUpdate:
         if not self._configured:
             setup_fn = getattr(scope, "setup_device_respiratory", None)
@@ -393,36 +459,42 @@ class RespiratorySensorModule(SensorModule):
                 setup_fn()
             self._configured = True
 
-        samples = scope.get_respiratory_samples()
-        if hasattr(scope, "get_respiratory_time_axis"):
-            t_axis = scope.get_respiratory_time_axis(samples)
-        else:
-            sample_rate = getattr(self.plot, "sample_rate", 1) or 1
-            t_axis = np.arange(len(samples)) / sample_rate
+        try:
+            samples = scope.get_respiratory_samples()
+            if hasattr(scope, "get_respiratory_time_axis"):
+                t_axis = scope.get_respiratory_time_axis(samples)
+            else:
+                sample_rate = getattr(self.plot, "sample_rate", 1) or 1
+                t_axis = np.arange(len(samples)) / sample_rate
 
-        artists = self.plot.update_plot(t_axis, samples)
-        if artists is None:
-            artists_tuple: Tuple[object, ...] = tuple()
-        elif isinstance(artists, tuple):
-            artists_tuple = artists
-        elif isinstance(artists, list):
-            artists_tuple = tuple(artists)
-        else:
-            artists_tuple = (artists,)
+            artists = self.plot.update_plot(t_axis, samples)
+            if artists is None:
+                artists_tuple: Tuple[object, ...] = tuple()
+            elif isinstance(artists, tuple):
+                artists_tuple = artists
+            elif isinstance(artists, list):
+                artists_tuple = tuple(artists)
+            else:
+                artists_tuple = (artists,)
 
-        latest_rate = self.plot.latest_rate
-        effort_delta = self.plot.latest_effort_delta
-        window_count = self.plot.window_breath_count
-        rate_window = self.plot.rate_window
+            latest_rate = self.plot.latest_rate
+            effort_delta = self.plot.latest_effort_delta
+            window_count = self.plot.window_breath_count
+            rate_window = self.plot.rate_window
 
-        if latest_rate is not None:
-            primary = f"{latest_rate:.1f} BrPM"
-            secondary = f"{(effort_delta or 0.0):.3f} V Δ"
-            log = f"Breaths detected in last {rate_window}s: {window_count}"
-        else:
+            if latest_rate is not None:
+                primary = f"{latest_rate:.1f} BrPM"
+                secondary = f"{(effort_delta or 0.0):.3f} V Δ"
+                log = f"Breaths detected in last {rate_window}s: {window_count}"
+            else:
+                primary = "--"
+                secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Δ"
+                log = "Tracking respiratory baseline..."
+        except:
             primary = "--"
-            secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Δ"
-            log = "Tracking respiratory baseline..."
+            secondary = "--"
+            log = "Unable to read scope"
+            artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
             primary_value=primary,
@@ -732,8 +804,45 @@ class CyVitalApp:
             relief=tk.FLAT,
             padx=18,
             pady=8,
+            font=FONTS["button"],
         )
         self.toggle_btn.grid(row=0, column=2)
+
+        self._attach_button_hover(self.toggle_btn)
+
+        history_frame = tk.Frame(self.controls_frame, bg=COLORS["background"])
+        history_frame.grid(row=0, column=3, padx=(12, 0))
+
+        self.history_back_btn = tk.Button(
+            history_frame,
+            text="◀",
+            width=3,
+            command=lambda: self._shift_history(-1),
+            bg=COLORS["panel"],
+            fg=COLORS["text_primary"],
+            relief=tk.FLAT,
+            padx=6,
+            pady=8,
+            font=FONTS["button"],
+        )
+        self.history_back_btn.pack(side=tk.LEFT, padx=(0, 6))
+        self._attach_button_hover(self.history_back_btn)
+
+        self.history_forward_btn = tk.Button(
+            history_frame,
+            text="▶",
+            width=3,
+            command=lambda: self._shift_history(1),
+            bg=COLORS["panel"],
+            fg=COLORS["text_primary"],
+            relief=tk.FLAT,
+            padx=6,
+            pady=8,
+            font=FONTS["button"],
+        )
+        self.history_forward_btn.pack(side=tk.LEFT)
+        self._attach_button_hover(self.history_forward_btn)
+        self.history_buttons = [self.history_back_btn, self.history_forward_btn]
 
     def _build_metrics(self) -> None:
         metrics_frame = tk.Frame(self.main_container, bg=COLORS["background"])
@@ -822,6 +931,27 @@ class CyVitalApp:
         )
         self.export_btn.pack(side=tk.RIGHT)
 
+        self._attach_button_hover(self.export_btn, emphasis=True)
+
+    def _attach_button_hover(self, button: tk.Button, *, emphasis: bool = False) -> None:
+        base_bg = button["bg"]
+        base_fg = button["fg"]
+        hover_bg = COLORS["accent"] if emphasis else COLORS["panel_border"]
+        hover_fg = COLORS["accent_text"] if emphasis else button["fg"]
+
+        def on_enter(_event: tk.Event) -> None:
+            button.configure(bg=hover_bg, fg=hover_fg, cursor="hand2")
+
+        def on_leave(_event: tk.Event) -> None:
+            button.configure(bg=base_bg, fg=base_fg, cursor="")
+
+        button.bind("<Enter>", on_enter)
+        button.bind("<Leave>", on_leave)
+
+    def _shift_history(self, direction: int) -> None:
+        if self.current_module.shift_history_window(direction) and self.canvas:
+            self.canvas.draw_idle()
+    
     def _register_sensors(self, definitions) -> None:
         for definition in definitions:
             self.register_sensor(definition)

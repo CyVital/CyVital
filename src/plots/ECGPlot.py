@@ -153,6 +153,10 @@ class ECGPlot(PlotManager):
         PlotManager.on_release(self, event, self.ax1, self.raw_time_vals, self.raw_vals)
         self.fig.canvas.draw()
     
+    def shift_review_window(self, direction):
+        self.ax1.set_xlim(*(limit + (direction * 5) for limit in self.ax1.get_xlim()))
+        return True
+    
     def _close_plot(self):
         plt.close(self.fig)
 
