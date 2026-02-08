@@ -995,7 +995,7 @@ class CyVitalApp:
         self.primary_value_var.set("--")
         self.secondary_value_var.set("--")
         self.log_status_var.set(
-            "Preparing stream..." if self.current_module.supports_streaming else "Stream not connected"
+            "Ready to stream (press Play)" if self.current_module.supports_streaming else "Stream not connected"
         )
 
         self._render_sensor_content()
@@ -1046,11 +1046,10 @@ class CyVitalApp:
             self.export_btn.configure(state=tk.DISABLED)
 
         if self.current_module.supports_streaming and self.current_module.get_figure():
-            self.toggle_btn.configure(state=tk.NORMAL, text="Pause")
-            self.animation_running = True
-            self.status_indicator.configure(fg=COLORS["status_active"])
-            self.status_text_var.set("Live")
-            self._start_animation()
+            self.toggle_btn.configure(state=tk.NORMAL, text="Play")
+            self.animation_running = False
+            self.status_indicator.configure(fg=COLORS["status_inactive"])
+            self.status_text_var.set("Ready")
         else:
             self.toggle_btn.configure(state=tk.DISABLED, text="Unavailable")
             self.animation_running = False
@@ -1090,16 +1089,21 @@ class CyVitalApp:
             self.canvas.draw_idle()
 
     def toggle_animation(self) -> None:
-        if not self.animation or not self.current_module:
-            return
         if self.animation_running:
-            self.animation.event_source.stop()
+            if self.animation:
+                self.animation.event_source.stop()
             self.animation_running = False
-            self.toggle_btn.configure(text="Resume")
+            self.toggle_btn.configure(text="Play")
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Paused")
             self.current_module.pause()
         else:
+            if not self.current_module or not self.current_module.supports_streaming:
+                return
+            if not self.animation:
+                self._start_animation()
+            if not self.animation:
+                return
             self.animation.event_source.start()
             self.animation_running = True
             self.toggle_btn.configure(text="Pause")
