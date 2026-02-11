@@ -133,7 +133,10 @@ class ReactionSensorModule(SensorModule):
         self.plot = ReactionPlot()
     
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_reaction()
+        try:
+            scope.setup_device_reaction()
+        except:
+            self.supports_streaming = False
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -172,7 +175,7 @@ class ReactionSensorModule(SensorModule):
         except IOError:
             primary = "--"
             secondary = "--"
-            log = "No scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -204,7 +207,10 @@ class EMGSensorModule(SensorModule):
         return self.plot.fig
     
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_emg()
+        try:
+            scope.setup_device_emg()
+        except:
+            self.supports_streaming = False
 
     def shift_history_window(self, direction: int) -> bool:
         return self.plot.shift_review_window(direction)
@@ -226,7 +232,7 @@ class EMGSensorModule(SensorModule):
 
             msg = ""
         except IOError:
-            msg = "Cannot read scope"
+            msg = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -255,7 +261,10 @@ class ECGSensorModule(SensorModule):
         self.plot = ECGPlot()
 
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_ecg()
+        try:
+            scope.setup_device_ecg()
+        except:
+            self.supports_streaming = False
     
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -296,7 +305,7 @@ class ECGSensorModule(SensorModule):
         except IOError:
             primary = "--"
             secondary = "--"
-            log = "Cannot read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
 
@@ -326,7 +335,10 @@ class PulseOxSensorModule(SensorModule):
         self.plot = PulseOxPlot()
 
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_pulse_ox()
+        try:
+            scope.setup_device_pulse_ox()
+        except:
+            self.supports_streaming = False
     
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -362,7 +374,7 @@ class PulseOxSensorModule(SensorModule):
         except IOError:
             primary = "--"
             secondary = "--"
-            log = "Cannot read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -394,7 +406,10 @@ class BloodPressureSensorModule(SensorModule):
         return self.plot.fig
     
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_blood_pressure()
+        try:
+            scope.setup_device_blood_pressure()
+        except:
+            self.supports_streaming = False
 
     def shift_history_window(self, direction: int) -> bool:
         return self.plot.shift_review_window(direction)
@@ -416,7 +431,7 @@ class BloodPressureSensorModule(SensorModule):
 
             log = "Displaying data"
         except IOError:
-            log = "Unable to read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -490,10 +505,10 @@ class RespiratorySensorModule(SensorModule):
                 primary = "--"
                 secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Δ"
                 log = "Tracking respiratory baseline..."
-        except:
+        except IOError:
             primary = "--"
             secondary = "--"
-            log = "Unable to read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
