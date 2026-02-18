@@ -17,6 +17,7 @@ TO ADD NEW SENSOR
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 import tkinter as tk
@@ -43,6 +44,8 @@ from plots.ECGPlot import ECGPlot
 from plots.PulseOxPlot import PulseOxPlot
 from plots.RespiratoryPlot import RespiratoryPlot
 from plots.BloodPressurePlot import BloodPressurePlot
+
+LOGGER = logging.getLogger(__name__)
 
 
 COLORS = {
@@ -135,8 +138,9 @@ class ReactionSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         try:
             scope.setup_device_reaction()
-        except:
+        except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
+            LOGGER.warning("Reaction scope setup failed; streaming disabled: %s", exc)
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -209,8 +213,9 @@ class EMGSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         try:
             scope.setup_device_emg()
-        except:
+        except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
+            LOGGER.warning("EMG scope setup failed; streaming disabled: %s", exc)
 
     def shift_history_window(self, direction: int) -> bool:
         return self.plot.shift_review_window(direction)
@@ -263,8 +268,9 @@ class ECGSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         try:
             scope.setup_device_ecg()
-        except:
+        except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
+            LOGGER.warning("ECG scope setup failed; streaming disabled: %s", exc)
     
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -337,8 +343,9 @@ class PulseOxSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         try:
             scope.setup_device_pulse_ox()
-        except:
+        except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
+            LOGGER.warning("Pulse ox scope setup failed; streaming disabled: %s", exc)
     
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -408,8 +415,9 @@ class BloodPressureSensorModule(SensorModule):
     def setup_scope(self, scope: Scope) -> None:
         try:
             scope.setup_device_blood_pressure()
-        except:
+        except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
+            LOGGER.warning("Blood pressure scope setup failed; streaming disabled: %s", exc)
 
     def shift_history_window(self, direction: int) -> bool:
         return self.plot.shift_review_window(direction)
@@ -505,11 +513,18 @@ class RespiratorySensorModule(SensorModule):
                 primary = "--"
                 secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Δ"
                 log = "Tracking respiratory baseline..."
-        except IOError:
+        except (IOError, OSError) as exc:
             primary = "--"
             secondary = "--"
-            log = "IO Error: Cannot read scope"
+            log = "IO error: respiratory stream unavailable"
             artists_tuple: Tuple[object, ...] = tuple()
+            LOGGER.warning("Respiratory scope read failed: %s", exc)
+        except (AttributeError, ValueError, TypeError) as exc:
+            primary = "--"
+            secondary = "--"
+            log = "Respiratory processing error (see logs)"
+            artists_tuple: Tuple[object, ...] = tuple()
+            LOGGER.exception("Respiratory data processing failed: %s", exc)
 
         return SensorUpdate(
             primary_value=primary,
