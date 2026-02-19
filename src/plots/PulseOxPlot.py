@@ -79,7 +79,9 @@ class PulseOxPlot(PlotManager):
         self.all_bits.extend(bits)
 
         #set binary data
-        self.line_red_dig.set_data(range(len(self.all_bits) - self.window_size, len(self.all_bits)), self.all_bits[-self.window_size:])
+        bit_window = self.all_bits[-self.window_size:]
+        bit_start = len(self.all_bits) - len(bit_window)
+        self.line_red_dig.set_data(range(bit_start, len(self.all_bits)), bit_window)
         self.ax_dig.set_xlim(len(self.all_bits) - len(bits), len(self.all_bits))
 
         # set data

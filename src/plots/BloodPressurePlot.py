@@ -6,7 +6,7 @@ import time
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
 
-class BloodPressurePlot(PlotManager):\
+class BloodPressurePlot(PlotManager):
 
     def __init__(self):
         super().__init__()
@@ -29,7 +29,7 @@ class BloodPressurePlot(PlotManager):\
         self.ax_raw.set_xlabel("Time")
         self.ax_raw.grid(True)
 
-        self.line_pressure = self.ax_pressure.plot([], [], lw=1)
+        self.line_pressure, = self.ax_pressure.plot([], [], lw=1)
         self.ax_pressure.set_ylim(0, 200)
         self.ax_pressure.set_ylabel("Pressure")
         self.ax_pressure.set_xlabel("Time")
@@ -62,7 +62,7 @@ class BloodPressurePlot(PlotManager):\
             pressure_samples.append(sample * self.m)
         return pressure_samples
     
-    def plot_all(self, event):
+    def plot_all(self, event=None):
         self.line_raw.set_data(self.full_times, self.raw_volts)
         self.line_pressure.set_data(self.full_times, self.pressures)
     
