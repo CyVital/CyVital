@@ -60,6 +60,8 @@ class Scope:
 
     def setup_device_emg(self):
 
+        self.emg_sample_count = 0
+
         try:
             self.setup_device_analog()
 
@@ -81,6 +83,9 @@ class Scope:
             print("Cannot set up emg scope")
 
     def setup_device_ecg(self):
+
+        self.ecg_sample_count = 0
+
         try:
             self.setup_device_analog()
 
