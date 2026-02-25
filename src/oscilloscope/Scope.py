@@ -56,8 +56,7 @@ class Scope:
 
         self.emg_sample_count = 0
 
-        try:
-            self.setup_device_analog()
+        self.setup_device_analog()
 
         # Optional DIO setup
         self.device.digital_io.reset()
@@ -78,13 +77,13 @@ class Scope:
 
         self.ecg_sample_count = 0
 
-        try:
-            self.setup_device_analog()
+        
+        self.setup_device_analog()
 
-            self.wavegen = self.device.analog_output
-            self.wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
-            self.wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
-            self.wavegen[0].configure(start=True)
+        self.wavegen = self.device.analog_output
+        self.wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
+        self.wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
+        self.wavegen[0].configure(start=True)
 
         self.scope = self.device.analog_input
         self.scope[0].setup(range=0.5)
