@@ -919,7 +919,7 @@ class CyVitalApp:
 
         self.export_btn = tk.Button(
             export_frame,
-            text="Export CSV",
+            text="Export Excel File",
             command=self.export_data,
             bg=COLORS["panel"],
             fg=COLORS["text_primary"],
