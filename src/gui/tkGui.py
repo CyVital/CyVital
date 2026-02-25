@@ -1077,10 +1077,10 @@ class CyVitalApp:
         figure = self.current_module.get_figure()
         if not figure:
             return
-        # Force the canvas to be fully realized 
-        canvas = figure.canvas 
-        canvas.draw() 
-        canvas.flush_events()
+        
+        # self.root.update_idletasks()
+        # self.root.update()
+
         self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False)
 
     def _stop_animation(self) -> None:
