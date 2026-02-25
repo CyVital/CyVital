@@ -21,10 +21,15 @@ class FakeScope:
         pulse_voltage: float = 3.0,
         rng_seed: Optional[int] = None,
         *,
+        emg_sample_rate: int = 4000,
+        emg_buffer_size: int = 2048,
         ecg_sample_rate: int = 8192,
         ecg_buffer_size: int = 4096,
         ecg_bpm: float = 72.0,
         ecg_noise_level: float = 0.02,
+        pulse_ox_sample_rate: int = 10,
+        blood_pressure_sample_rate: int = 200,
+        blood_pressure_buffer_size: int = 200,
         resp_sample_rate: int = 50,
         resp_buffer_size: int = 15,
         resp_rate_bpm: float = 12.0,
@@ -43,6 +48,14 @@ class FakeScope:
         self.ecg_bpm = ecg_bpm
         self.ecg_noise_level = ecg_noise_level
         self.ecg_signal_time = 0.0
+        self.emg_sample_rate = emg_sample_rate
+        self.emg_buffer_size = emg_buffer_size
+        self.emg_sample_count = 0
+        self.pulse_ox_sample_rate = pulse_ox_sample_rate
+        self.pulse_ox_sample_count = 0
+        self.blood_pressure_sample_rate = blood_pressure_sample_rate
+        self.blood_pressure_buffer_size = blood_pressure_buffer_size
+        self.blood_pressure_sample_count = 0
         self.resp_sample_rate = resp_sample_rate
         self.resp_buffer_size = resp_buffer_size
         self.resp_rate_bpm = resp_rate_bpm
@@ -57,6 +70,25 @@ class FakeScope:
         self._ecg_template = self._generate_ecg_template()
         self._ecg_index = 0
         self._stream_clock: Dict[str, float] = {}
+
+    # --- Scope-style setup API (no-ops for fake data) ---
+    def setup_device_reaction(self) -> None:
+        self.signal_time = 0.0
+
+    def setup_device_emg(self) -> None:
+        self.emg_sample_count = 0
+
+    def setup_device_ecg(self) -> None:
+        self.ecg_signal_time = 0.0
+
+    def setup_device_pulse_ox(self) -> None:
+        self.pulse_ox_sample_count = 0
+
+    def setup_device_blood_pressure(self) -> None:
+        self.blood_pressure_sample_count = 0
+
+    def setup_device_respiratory(self) -> None:
+        self.resp_signal_time = 0.0
 
     def _choose_gap(self) -> int:
         # Aim for 1-3 second gaps between pulses to mimic reaction trials.
@@ -127,6 +159,51 @@ class FakeScope:
         self.ecg_signal_time += len(samples) / self.ecg_sample_rate
         return samples
 
+    def get_emg_samples(self) -> np.ndarray:
+        self._throttle_stream("emg", self.emg_buffer_size, self.emg_sample_rate)
+        t = (
+            np.arange(self.emg_buffer_size, dtype=float) / self.emg_sample_rate
+            + (self.emg_sample_count / self.emg_sample_rate)
+        )
+        # Simple EMG-like signal: noisy rectified sine with baseline noise
+        carrier = np.sin(2 * np.pi * 50.0 * t)
+        envelope = 0.5 + 0.5 * np.sin(2 * np.pi * 1.0 * t)
+        signal = np.abs(carrier) * envelope
+        noise = 0.05 * self._np_rng.normal(size=self.emg_buffer_size)
+        self.emg_sample_count += self.emg_buffer_size
+        return (signal + noise).astype(np.float32)
+
+    def get_pulse_ox_samples(self):
+        # Return 6 bytes (red[3], ir[3]) like the MAX30101 FIFO.
+        self._throttle_stream("pulse_ox", 1, self.pulse_ox_sample_rate, max_interval=0.1)
+        t = self.pulse_ox_sample_count / max(self.pulse_ox_sample_rate, 1)
+        base = 50000
+        red = int(base + 8000 * np.sin(2 * np.pi * 1.2 * t) + 500 * self._np_rng.normal())
+        ir = int(base + 7000 * np.sin(2 * np.pi * 1.2 * t + 0.2) + 500 * self._np_rng.normal())
+        red = max(0, min(red, 0x03FFFF))
+        ir = max(0, min(ir, 0x03FFFF))
+        self.pulse_ox_sample_count += 1
+        return [
+            (red >> 16) & 0xFF, (red >> 8) & 0xFF, red & 0xFF,
+            (ir >> 16) & 0xFF, (ir >> 8) & 0xFF, ir & 0xFF,
+        ]
+
+    def get_blood_pressure_samples(self) -> np.ndarray:
+        self._throttle_stream(
+            "blood_pressure",
+            self.blood_pressure_buffer_size,
+            self.blood_pressure_sample_rate,
+            max_interval=0.1,
+        )
+        t = (
+            np.arange(self.blood_pressure_buffer_size, dtype=float) / self.blood_pressure_sample_rate
+            + (self.blood_pressure_sample_count / self.blood_pressure_sample_rate)
+        )
+        waveform = 0.5 + 0.3 * np.sin(2 * np.pi * 1.2 * t)
+        noise = 0.02 * self._np_rng.normal(size=self.blood_pressure_buffer_size)
+        self.blood_pressure_sample_count += self.blood_pressure_buffer_size
+        return (waveform + noise).astype(np.float32)
+
     def get_respiratory_samples(self) -> np.ndarray:
         self._throttle_stream(
             "resp",
@@ -160,12 +237,23 @@ class FakeScope:
             len(samples),
         )
 
+    def get_emg_time_axis(self, samples: np.ndarray) -> np.ndarray:
+        t_start = (self.emg_sample_count - len(samples)) / self.emg_sample_rate
+        return np.arange(len(samples)) / self.emg_sample_rate + t_start
+
     def get_respiratory_time_axis(self, samples: np.ndarray) -> np.ndarray:
         return np.linspace(
             self.resp_signal_time - len(samples) / self.resp_sample_rate,
             self.resp_signal_time,
             len(samples),
         )
+
+    def get_pulse_ox_time_axis(self):
+        return np.linspace(0, self.pulse_ox_sample_count, self.pulse_ox_sample_count)
+
+    def get_blood_pressure_time_axis(self, samples: np.ndarray) -> np.ndarray:
+        t_start = (self.blood_pressure_sample_count - len(samples)) / self.blood_pressure_sample_rate
+        return np.arange(len(samples)) / self.blood_pressure_sample_rate + t_start
 
     # Provide the Scope-style API so the GUI can swap between implementations.
     def get_reaction_samples(self) -> np.ndarray:
@@ -181,6 +269,9 @@ class FakeScope:
         self.signal_time = 0.0
         self.ecg_signal_time = 0.0
         self.resp_signal_time = 0.0
+        self.emg_sample_count = 0
+        self.pulse_ox_sample_count = 0
+        self.blood_pressure_sample_count = 0
         self._stream_clock.clear()
 
     def _throttle_stream(

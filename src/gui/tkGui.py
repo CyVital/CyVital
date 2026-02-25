@@ -133,7 +133,10 @@ class ReactionSensorModule(SensorModule):
         self.plot = ReactionPlot()
     
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_reaction()
+        try:
+            scope.setup_device_reaction()
+        except:
+            self.supports_streaming = False
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -172,7 +175,7 @@ class ReactionSensorModule(SensorModule):
         except IOError:
             primary = "--"
             secondary = "--"
-            log = "No scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -204,7 +207,10 @@ class EMGSensorModule(SensorModule):
         return self.plot.fig
     
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_emg()
+        try:
+            scope.setup_device_emg()
+        except:
+            self.supports_streaming = False
 
     def shift_history_window(self, direction: int) -> bool:
         return self.plot.shift_review_window(direction)
@@ -226,7 +232,7 @@ class EMGSensorModule(SensorModule):
 
             msg = ""
         except IOError:
-            msg = "Cannot read scope"
+            msg = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -255,7 +261,10 @@ class ECGSensorModule(SensorModule):
         self.plot = ECGPlot()
 
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_ecg()
+        try:
+            scope.setup_device_ecg()
+        except:
+            self.supports_streaming = False
     
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -296,7 +305,7 @@ class ECGSensorModule(SensorModule):
         except IOError:
             primary = "--"
             secondary = "--"
-            log = "Cannot read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
 
@@ -326,7 +335,10 @@ class PulseOxSensorModule(SensorModule):
         self.plot = PulseOxPlot()
 
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_pulse_ox()
+        try:
+            scope.setup_device_pulse_ox()
+        except:
+            self.supports_streaming = False
     
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -362,7 +374,7 @@ class PulseOxSensorModule(SensorModule):
         except IOError:
             primary = "--"
             secondary = "--"
-            log = "Cannot read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -394,7 +406,10 @@ class BloodPressureSensorModule(SensorModule):
         return self.plot.fig
     
     def setup_scope(self, scope: Scope) -> None:
-        scope.setup_device_blood_pressure()
+        try:
+            scope.setup_device_blood_pressure()
+        except:
+            self.supports_streaming = False
 
     def shift_history_window(self, direction: int) -> bool:
         return self.plot.shift_review_window(direction)
@@ -416,7 +431,7 @@ class BloodPressureSensorModule(SensorModule):
 
             log = "Displaying data"
         except IOError:
-            log = "Unable to read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -490,10 +505,10 @@ class RespiratorySensorModule(SensorModule):
                 primary = "--"
                 secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Δ"
                 log = "Tracking respiratory baseline..."
-        except:
+        except IOError:
             primary = "--"
             secondary = "--"
-            log = "Unable to read scope"
+            log = "IO Error: Cannot read scope"
             artists_tuple: Tuple[object, ...] = tuple()
 
         return SensorUpdate(
@@ -995,7 +1010,7 @@ class CyVitalApp:
         self.primary_value_var.set("--")
         self.secondary_value_var.set("--")
         self.log_status_var.set(
-            "Preparing stream..." if self.current_module.supports_streaming else "Stream not connected"
+            "Ready to stream (press Play)" if self.current_module.supports_streaming else "Stream not connected"
         )
 
         self._render_sensor_content()
@@ -1046,11 +1061,10 @@ class CyVitalApp:
             self.export_btn.configure(state=tk.DISABLED)
 
         if self.current_module.supports_streaming and self.current_module.get_figure():
-            self.toggle_btn.configure(state=tk.NORMAL, text="Pause")
-            self.animation_running = True
-            self.status_indicator.configure(fg=COLORS["status_active"])
-            self.status_text_var.set("Live")
-            self._start_animation()
+            self.toggle_btn.configure(state=tk.NORMAL, text="Play")
+            self.animation_running = False
+            self.status_indicator.configure(fg=COLORS["status_inactive"])
+            self.status_text_var.set("Ready")
         else:
             self.toggle_btn.configure(state=tk.DISABLED, text="Unavailable")
             self.animation_running = False
@@ -1063,6 +1077,10 @@ class CyVitalApp:
         figure = self.current_module.get_figure()
         if not figure:
             return
+        
+        # self.root.update_idletasks()
+        # self.root.update()
+
         self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False)
 
     def _stop_animation(self) -> None:
@@ -1090,16 +1108,21 @@ class CyVitalApp:
             self.canvas.draw_idle()
 
     def toggle_animation(self) -> None:
-        if not self.animation or not self.current_module:
-            return
         if self.animation_running:
-            self.animation.event_source.stop()
+            if self.animation:
+                self.animation.event_source.stop()
             self.animation_running = False
-            self.toggle_btn.configure(text="Resume")
+            self.toggle_btn.configure(text="Play")
             self.status_indicator.configure(fg=COLORS["status_inactive"])
             self.status_text_var.set("Paused")
             self.current_module.pause()
         else:
+            if not self.current_module or not self.current_module.supports_streaming:
+                return
+            if not self.animation:
+                self._start_animation()
+            if not self.animation:
+                return
             self.animation.event_source.start()
             self.animation_running = True
             self.toggle_btn.configure(text="Pause")
