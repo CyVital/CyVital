@@ -21,7 +21,6 @@ import logging
 import os
 import sys
 import tkinter as tk
-from statistics import mean
 from typing import Callable, Dict, Optional, Tuple
 import time
 import numpy as np
@@ -37,7 +36,6 @@ if SRC_ROOT not in sys.path:
 
 from oscilloscope.FakeScope import FakeScope
 from oscilloscope.Scope import Scope
-from plots.ReactionPlot import ReactionPlot
 from plots.EMGPlot import EMGPlot
 from plots.ECGPlot import ECGPlot
 from plots.PulseOxPlot import PulseOxPlot
@@ -45,115 +43,14 @@ from plots.RespiratoryPlot import RespiratoryPlot
 from plots.BloodPressurePlot import BloodPressurePlot
 try:
     from .models import SensorDefinition, SensorUpdate
+    from .sensors import ReactionSensorModule, SensorModule
     from .theme import COLORS, FONTS
 except ImportError:
     from models import SensorDefinition, SensorUpdate
+    from sensors import ReactionSensorModule, SensorModule
     from theme import COLORS, FONTS
 
 LOGGER = logging.getLogger(__name__)
-
-
-class SensorModule:
-    #sensor integrations
-
-    supports_streaming: bool = True
-    supports_export: bool = False
-
-    def get_figure(self) -> Optional[Figure]:
-        #Return a Matplotlib figure to embed in graph
-        return None
-
-    def setup_scope(self, scope: Scope) -> None:
-        pass
-    
-    def get_placeholder_message(self) -> Optional[str]:
-        #Return a when no data
-        return None
-
-    def update(self, scope: Scope) -> SensorUpdate:
-        #Fetch new data and describe what should ouput
-        return SensorUpdate()
-
-    def save_data(self) -> Optional[str]:
-        #send collected data when export button
-        raise NotImplementedError("Export not implemented for this module.")
-
-    def cleanup(self) -> None:
-        #Release resource
-        pass
-
-class ReactionSensorModule(SensorModule):
-    #reaction-time workflow within app
-
-    supports_export = True
-
-    def __init__(self) -> None:
-        self.plot = ReactionPlot()
-    
-    def setup_scope(self, scope: Scope) -> None:
-        try:
-            scope.setup_device_reaction()
-        except (IOError, OSError, AttributeError, NotImplementedError) as exc:
-            self.supports_streaming = False
-            LOGGER.warning("Reaction scope setup failed; streaming disabled: %s", exc)
-
-    def get_figure(self) -> Optional[Figure]:
-        return self.plot.fig
-    
-    def shift_history_window(self, direction: int) -> bool:
-        return self.plot.shift_review_window(direction)
-
-    def update(self, scope: Scope) -> SensorUpdate:
-        try:
-            samples = scope.get_reaction_samples()
-            t_axis = scope.get_reaction_time_axis(samples)
-
-            artists = self.plot.update_plot(t_axis, samples)
-            if artists is None:
-                artists_tuple: Tuple[object, ...] = tuple()
-            elif isinstance(artists, tuple):
-                artists_tuple = artists
-            elif isinstance(artists, list):
-                artists_tuple = tuple(artists)
-            else:
-                artists_tuple = (artists,)
-
-            if self.plot.reaction_times:
-                latest = self.plot.reaction_times[-1]
-                average = mean(self.plot.reaction_times)
-                primary = f"{latest:.1f} ms"
-                secondary = f"{average:.1f} ms"
-                log = (
-                    f"Trials recorded: {len(self.plot.reaction_times)} | "
-                    f"Average reaction: {average:.1f} ms"
-                )
-            else:
-                primary = "--"
-                secondary = "--"
-                log = "Waiting for first reaction sample"
-        except IOError:
-            primary = "--"
-            secondary = "--"
-            log = "IO Error: Cannot read scope"
-            artists_tuple: Tuple[object, ...] = tuple()
-
-        return SensorUpdate(
-            primary_value=primary,
-            secondary_value=secondary,
-            log_message=log,
-            artists=artists_tuple,
-        )
-
-    def pause(self) -> None:
-        self.plot.plot_all()
-    
-    def save_data(self) -> Optional[str]:
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_str = f"reaction_data_{timestamp}.xlsx"
-        return self.plot.save_data(file_str)
-
-    def cleanup(self) -> None:
-        self.plot._close_plot()
 
 class EMGSensorModule(SensorModule):
 
