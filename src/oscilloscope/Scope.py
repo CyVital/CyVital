@@ -53,6 +53,9 @@ class Scope:
         self.scope.scan_shift(sample_rate=self.reaction_sample_rate, buffer_size=self.reaction_buffer_size, configure=True, start=True)
 
     def setup_device_emg(self):
+
+        self.emg_sample_count = 0
+
         self.setup_device_analog()
 
         # Optional DIO setup
@@ -71,7 +74,16 @@ class Scope:
                         start=True)
 
     def setup_device_ecg(self):
+
+        self.ecg_sample_count = 0
+
+        
         self.setup_device_analog()
+
+        self.wavegen = self.device.analog_output
+        self.wavegen[0].setup(function="sine", frequency=1.25, amplitude=0.05, offset=0.0)
+        self.wavegen[0].setup_am(function="triangle", frequency=0.1, amplitude=20)
+        self.wavegen[0].configure(start=True)
 
         self.scope = self.device.analog_input
         self.scope[0].setup(range=0.5)
