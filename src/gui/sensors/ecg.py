@@ -1,16 +1,15 @@
-"""Reaction-time sensor module for the Tk GUI."""
+"""ECG sensor module for the Tk GUI."""
 
 from __future__ import annotations
 
 import logging
 import time
-from statistics import mean
 from typing import Optional
 
 from matplotlib.figure import Figure
 
 from oscilloscope.Scope import Scope
-from plots.ReactionPlot import ReactionPlot
+from plots.ECGPlot import ECGPlot
 
 try:
     from ..models import SensorUpdate
@@ -23,20 +22,18 @@ from .helpers import normalize_artists
 LOGGER = logging.getLogger(__name__)
 
 
-class ReactionSensorModule(SensorModule):
-    # reaction-time workflow within app
-
+class ECGSensorModule(SensorModule):
     supports_export = True
 
     def __init__(self) -> None:
-        self.plot = ReactionPlot()
+        self.plot = ECGPlot()
 
     def setup_scope(self, scope: Scope) -> None:
         try:
-            scope.setup_device_reaction()
+            scope.setup_device_ecg()
         except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
-            LOGGER.warning("Reaction scope setup failed; streaming disabled: %s", exc)
+            LOGGER.warning("ECG scope setup failed; streaming disabled: %s", exc)
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -46,24 +43,25 @@ class ReactionSensorModule(SensorModule):
 
     def update(self, scope: Scope) -> SensorUpdate:
         try:
-            samples = scope.get_reaction_samples()
-            t_axis = scope.get_reaction_time_axis(samples)
-
+            samples = scope.get_ecg_samples()
+            t_axis = scope.get_ecg_time_axis(samples)
             artists_tuple = normalize_artists(self.plot.update_plot(t_axis, samples))
 
-            if self.plot.reaction_times:
-                latest = self.plot.reaction_times[-1]
-                average = mean(self.plot.reaction_times)
-                primary = f"{latest:.1f} ms"
-                secondary = f"{average:.1f} ms"
+            latest = self.plot.latest_bpm
+            average = self.plot.avg_bpm
+            if latest is not None:
+                primary = f"{latest:.1f} BPM"
+                secondary_value = average if average is not None else latest
+                secondary = f"{secondary_value:.1f} BPM"
+                elapsed = self.plot.time_values[-1] if self.plot.time_values else 0.0
                 log = (
-                    f"Trials recorded: {len(self.plot.reaction_times)} | "
-                    f"Average reaction: {average:.1f} ms"
+                    f"Elapsed time: {elapsed:.1f}s | Peaks in {self.plot.window_duration:.0f}s window: "
+                    f"{len(self.plot.recent_peak_times)}"
                 )
             else:
                 primary = "--"
                 secondary = "--"
-                log = "Waiting for first reaction sample"
+                log = "Detecting ECG peaks..."
         except IOError:
             primary = "--"
             secondary = "--"
@@ -77,13 +75,13 @@ class ReactionSensorModule(SensorModule):
             artists=artists_tuple,
         )
 
+    def save_data(self) -> Optional[str]:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        return self.plot.save_data(f"ecg_data_{timestamp}.xlsx")
+
     def pause(self) -> None:
         self.plot.plot_all()
 
-    def save_data(self) -> Optional[str]:
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        file_str = f"reaction_data_{timestamp}.xlsx"
-        return self.plot.save_data(file_str)
-
     def cleanup(self) -> None:
         self.plot._close_plot()
+
