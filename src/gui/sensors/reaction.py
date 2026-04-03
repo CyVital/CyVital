@@ -29,14 +29,23 @@ class ReactionSensorModule(SensorModule):
     supports_export = True
 
     def __init__(self) -> None:
-        self.plot = ReactionPlot()
+        self.scope: Optional[Scope] = None
+        self.plot = ReactionPlot(cue_output=self._set_external_led)
 
     def setup_scope(self, scope: Scope) -> None:
+        self.scope = scope
         try:
             scope.setup_device_reaction()
         except (IOError, OSError, AttributeError, NotImplementedError) as exc:
             self.supports_streaming = False
             LOGGER.warning("Reaction scope setup failed; streaming disabled: %s", exc)
+
+    def _set_external_led(self, active: bool) -> None:
+        if not self.scope:
+            return
+        set_led = getattr(self.scope, "set_reaction_led", None)
+        if callable(set_led):
+            set_led(active)
 
     def get_figure(self) -> Optional[Figure]:
         return self.plot.fig
@@ -63,7 +72,7 @@ class ReactionSensorModule(SensorModule):
             else:
                 primary = "--"
                 secondary = "--"
-                log = "Waiting for first reaction sample"
+                log = "Waiting for LED cue"
         except IOError:
             primary = "--"
             secondary = "--"
@@ -86,4 +95,5 @@ class ReactionSensorModule(SensorModule):
         return self.plot.save_data(file_str)
 
     def cleanup(self) -> None:
+        self._set_external_led(False)
         self.plot._close_plot()

@@ -274,6 +274,10 @@ class FakeScope:
         self.blood_pressure_sample_count = 0
         self._stream_clock.clear()
 
+    def set_reaction_led(self, active: bool) -> None:
+        # GUI-only fallback for now; no external hardware LED to toggle.
+        return None
+
     def _throttle_stream(
         self,
         stream_key: str,

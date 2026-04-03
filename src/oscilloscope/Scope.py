@@ -231,6 +231,11 @@ class Scope:
         return t_axis
 
     # ---Other helpers-----------------------------------------------------------------------------------------
+    def set_reaction_led(self, active: bool):
+        # Placeholder hook for the physical reaction LED.
+        # When the hardware wiring is ready, drive the external LED here.
+        return None
+
     def reset(self):
         self.device.digital_io.reset()
         self.device.digital_io.configure()

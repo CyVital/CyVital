@@ -1,18 +1,21 @@
 import time
 import random
 from pathlib import Path
+from typing import Callable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Circle
 from matplotlib.widgets import Cursor
 from mpl_interactions import ioff, panhandler
 from PlotManager import PlotManager
 
 class ReactionPlot(PlotManager):
-    def __init__(self):
+    def __init__(self, cue_output: Optional[Callable[[bool], None]] = None):
         super().__init__()
         self.sample_rate = 10000
         self.threshold_voltage = 2
+        self.cue_output = cue_output
 
         self.reaction_times = []
         self.cue_active = False
@@ -41,6 +44,7 @@ class ReactionPlot(PlotManager):
         self.ax_signal.set_xlabel("Time (ms)")
         self.ax_signal.set_xlim(0)
         self.ax_signal.grid(True)
+        self.ax_signal.set_title("Press the hardware button after the LED turns on")
 
         self.ax_reaction.set_ylim(0, 1000)
         self.ax_reaction.set_xlim(0, 10)
@@ -48,7 +52,34 @@ class ReactionPlot(PlotManager):
         self.ax_reaction.set_xlabel("Trial")
         self.ax_reaction.grid(True)
 
-        self.cue_text = self.ax_signal.text(0.02, 0.9, '', transform=self.ax_signal.transAxes, fontsize=14, color='red')
+        self.cue_text = self.ax_signal.text(
+            0.02,
+            0.9,
+            "Waiting for LED cue...",
+            transform=self.ax_signal.transAxes,
+            fontsize=14,
+            color="red",
+        )
+        self.led_label = self.ax_signal.text(
+            0.87,
+            0.9,
+            "LED",
+            transform=self.ax_signal.transAxes,
+            fontsize=11,
+            color="#444444",
+            ha="right",
+            va="center",
+        )
+        self.led_indicator = Circle(
+            (0.93, 0.9),
+            radius=0.025,
+            transform=self.ax_signal.transAxes,
+            facecolor="#C7CBD1",
+            edgecolor="#6B6D71",
+            linewidth=1.5,
+            alpha=0.95,
+        )
+        self.ax_signal.add_patch(self.led_indicator)
 
         self.cursor = Cursor(self.ax_signal, useblit=True, color='red', linewidth=1)
         self.zoom = self.zoom_around_cursor(self.ax_signal)
@@ -61,6 +92,20 @@ class ReactionPlot(PlotManager):
         self.selection_start = 0
         self.selection_rect = None
         self.selection_end = 0
+        self._set_cue_state(False, "Waiting for LED cue...")
+
+    def _set_cue_state(self, active, message=None):
+        self.cue_active = active
+        self.led_indicator.set_facecolor("#FF453A" if active else "#C7CBD1")
+        self.led_indicator.set_edgecolor("#7A1C16" if active else "#6B6D71")
+        if message is not None:
+            self.cue_text.set_text(message)
+            self.cue_text.set_color("#C62828" if active else "#555555")
+        if self.cue_output is not None:
+            try:
+                self.cue_output(active)
+            except Exception:
+                pass
 
     def update_plot(self, t_axis, samples):
 
@@ -91,20 +136,21 @@ class ReactionPlot(PlotManager):
         # Start cue if delay has passed
         now = time.time()
         if not self.cue_active and (now - self.last_cue_time > self.random_delay):
-            self.cue_active = True
             self.reaction_start = now
-            self.cue_text.set_text("GO!")
+            self._set_cue_state(True, "LED ON! Press the button now")
 
         # Detect button press
         if self.cue_active and np.any(samples > self.threshold_voltage):
             rt_ms = (time.time() - self.reaction_start) * 1000
             self.reaction_times.append(rt_ms)
             self.trial_timestamps.append(self.raw_time[-1] if self.raw_time else 0.0)
-            self.cue_active = False
             self.last_cue_time = time.time()
             self.random_delay = random.uniform(2, 5)
 
-            self.cue_text.set_text(f"Reaction: {rt_ms:.1f} ms (Avg: {np.mean(self.reaction_times):.1f} ms)")
+            self._set_cue_state(
+                False,
+                f"Reaction: {rt_ms:.1f} ms (Avg: {np.mean(self.reaction_times):.1f} ms)",
+            )
             self.ax_reaction.clear()
             self.ax_reaction.set_ylim(0, 1000)
             self.ax_reaction.set_xlim(0, max(10, len(self.reaction_times)))
@@ -113,7 +159,7 @@ class ReactionPlot(PlotManager):
             self.ax_reaction.grid(True)
             self.ax_reaction.scatter(range(1, len(self.reaction_times) + 1), self.reaction_times, color='blue')
 
-        return self.line_signal, self.cue_text
+        return self.line_signal, self.cue_text, self.led_label, self.led_indicator
     
     def shift_review_window(self, direction):
         self.ax_signal.set_xlim(*(limit + (direction * 20) for limit in self.ax_signal.get_xlim()))
@@ -184,5 +230,6 @@ class ReactionPlot(PlotManager):
         return str(destination)
     
     def _close_plot(self):
+        self._set_cue_state(False)
         plt.close(self.fig)
 
