@@ -71,7 +71,7 @@ class PlotManager:
             # # Extract selected data
             full_time_array = np.array(time)
             full_samples_array = np.array(samples)
-            mask = (time >= x0) & (time <= x0 + width)
+            mask = (full_time_array >= x0) & (full_time_array <= x0 + width)
             self.selected_times = full_time_array[mask]
             self.selected_samples = full_samples_array[mask]
 

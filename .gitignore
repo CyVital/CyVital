@@ -175,6 +175,8 @@ cython_debug/
 
 # Ignore .ini files
 *.ini
+# Keep pytest configuration
+!pytest.ini
 
 # Include all __init__.py files (ensure Python packages are tracked)
 !__init__.py
