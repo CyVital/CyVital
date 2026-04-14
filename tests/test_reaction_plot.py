@@ -125,6 +125,15 @@ class TestUpdatePlotNoCue:
         xlim = self.rp.ax_signal.get_xlim()
         assert xlim[1] > xlim[0]
 
+    def test_raw_time_overlap_is_offset(self):
+        """When t_axis[0] <= raw_time[-1], an offset is added to avoid duplicate timestamps."""
+        t, s = _t_s()  # t starts near 0
+        # Pre-seed raw_time with a value larger than t[0] to force the overlap branch
+        self.rp.raw_time = [5.0, 6.0, 7.0]
+        self.rp.update_plot(t, s)
+        # After the offset the new raw_time entries must all be > 7.0
+        assert self.rp.raw_time[-1] > 7.0
+
 
 # ---------------------------------------------------------------------------
 # update_plot – cue triggers

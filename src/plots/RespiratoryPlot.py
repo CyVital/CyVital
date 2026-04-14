@@ -123,8 +123,6 @@ class RespiratoryPlot(PlotManager):
         if finite.size == 0:
             return None
         avg_interval = float(np.mean(finite))
-        if avg_interval <= 0:
-            return None
         return 60.0 / avg_interval
     
     def shift_review_window(self, direction):

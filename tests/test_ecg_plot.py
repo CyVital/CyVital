@@ -172,6 +172,15 @@ class TestBPMCalculation:
         ecg.update_plot(t, s)
         assert ecg.avg_bpm is None or ecg.avg_bpm is None
 
+    def test_nan_appended_when_avg_rr_is_zero(self):
+        """avg_rr=0.0 is falsy → the else branch appends nan instead of a BPM."""
+        ecg = ECGPlot()
+        # Two identical peak times produce diff=[0.0] → avg_rr=0.0 → falsy
+        ecg.recent_peak_times = [1.0, 1.0]
+        t, s = _flat_samples()  # no new peaks
+        ecg.update_plot(t, s)
+        assert np.isnan(ecg.bpm_values[-1])
+
 
 # ---------------------------------------------------------------------------
 # on_press / on_release

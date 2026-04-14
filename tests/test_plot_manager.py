@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from pathlib import Path
 from matplotlib.patches import Rectangle
 from unittest.mock import MagicMock, patch
 
@@ -234,3 +235,11 @@ class TestSaveData:
         )
         dest = pm.save_data("empty.xlsx")
         assert (tmp_path / "empty.xlsx").exists()
+
+    def test_prepare_export_path_creates_downloads_dir(self, tmp_path, monkeypatch):
+        """_prepare_export_path creates ~/Downloads and returns the full path."""
+        pm = PlotManager()
+        monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+        result = pm._prepare_export_path("report.xlsx")
+        assert result == tmp_path / "Downloads" / "report.xlsx"
+        assert (tmp_path / "Downloads").is_dir()

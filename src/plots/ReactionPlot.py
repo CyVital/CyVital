@@ -78,10 +78,7 @@ class ReactionPlot(PlotManager):
         self.raw_time.extend(t_axis.tolist())
         self.raw_samples.extend(samples.tolist())
 
-        try:
-            self.line_signal.set_data(self.full_time[-self.window_size:], self.full_samples[-self.window_size:])
-        except IndexError:
-            self.line_signal.set_data(self.full_time, self.full_samples)
+        self.line_signal.set_data(self.full_time[-self.window_size:], self.full_samples[-self.window_size:])
 
         try:
             self.ax_signal.set_xlim(self.full_time[-self.window_size], self.full_time[-1])

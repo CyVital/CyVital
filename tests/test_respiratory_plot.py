@@ -263,6 +263,12 @@ class TestComputeRate:
         # Only the 4 s interval is finite and > 0 → 15 BPM
         assert result == pytest.approx(15.0, rel=1e-4)
 
+    def test_returns_none_when_all_intervals_zero(self):
+        """All-identical timestamps → all diffs are 0 → filtered out → finite is empty → None."""
+        self.rp.recent_breath_times.extend([2.0, 2.0, 2.0])
+        result = self.rp._compute_rate()
+        assert result is None
+
 
 # ---------------------------------------------------------------------------
 # avg_rate accumulation
@@ -286,6 +292,13 @@ class TestAvgRate:
         finite = [v for v in rp.rate_values if np.isfinite(v)]
         if finite:
             assert rp.avg_rate == pytest.approx(float(np.mean(finite)), rel=1e-6)
+
+    def test_latest_effort_delta_none_when_display_depleted(self):
+        """A negative display_window drains all display samples, hitting the else branch."""
+        rp = RespiratoryPlot()
+        rp.display_window = -1  # cutoff = t[-1] - (-1) = t[-1]+1 > all timestamps → all trimmed
+        rp.update_plot(np.array([1.0]), np.array([0.5]))
+        assert rp.latest_effort_delta is None
 
 
 # ---------------------------------------------------------------------------
