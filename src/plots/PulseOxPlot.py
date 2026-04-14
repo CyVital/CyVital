@@ -110,6 +110,9 @@ class PulseOxPlot(PlotManager):
         x = self.filtered_ir(ir_buf)
         # require peaks with some prominence to avoid noise
         prom = np.std(x) * 0.5
+        # If std is effectively zero the signal is flat (DC-only); no real peaks.
+        if prom < 1e-10:
+            return None
         peaks, _ = find_peaks(x, distance=self.min_peak_distance, prominence=prom)
         if len(peaks) >= 5:
             # use last 4 intervals (5 peaks → 4 intervals)
