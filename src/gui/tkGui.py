@@ -438,7 +438,10 @@ class CyVitalApp:
         self.current_sensor_key = key
         self.current_module = definition.module_factory()
 
-        self.current_module.setup_scope(self.scope)
+        try:
+            self.current_module.setup_scope(self.scope)
+        except TypeError:
+            self.current_module.supports_streaming = False
 
         for nav_key, nav_item in self.nav_items.items():
             nav_item.set_active(nav_key == key)
