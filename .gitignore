@@ -10,8 +10,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
-!dist/CyVital.exe
 downloads/
 eggs/
 .eggs/
