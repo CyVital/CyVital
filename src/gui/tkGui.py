@@ -521,6 +521,19 @@ class CyVitalApp:
         if not figure:
             return
         
+        if self.canvas:
+            # Flush pending geometry/layout work
+            self.root.update_idletasks()
+            # Force an initial render so the canvas is fully realized
+            self.canvas.draw()
+            # Give focus to the canvas widget (helps on some platforms/backends)
+            try:
+                self.canvas.get_tk_widget().focus_set()
+            except Exception:
+                pass
+        else:
+            print("canvas failure")
+        
         # self.root.update_idletasks()
         # self.root.update()
 
@@ -566,7 +579,7 @@ class CyVitalApp:
                 self._start_animation()
             if not self.animation:
                 return
-            self.animation.event_source.start()
+            self.root.after(0, self.animation.event_source.start) #to fix tap play?
             self.animation_running = True
             self.toggle_btn.configure(text="Pause")
             self.status_indicator.configure(fg=COLORS["status_active"])
