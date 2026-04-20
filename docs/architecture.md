@@ -24,3 +24,6 @@ Sensor updates represent the data collected at regular intervals from sensors, w
 
 ### SensorDefinition
 This component defines the characteristics of each sensor module, including communication protocols and data formats.
+
+## CyVital.spec
+This file is used to compile the PyInstaller executables/apps, using the icons in the /icons folder. Just type `python PyInstaller CyVital.spec` to run.
