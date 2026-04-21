@@ -530,14 +530,16 @@ class CyVitalApp:
             try:
                 self.canvas.get_tk_widget().focus_set()
             except Exception:
-                pass
+                print("exception")
         else:
             print("canvas failure")
         
-        # self.root.update_idletasks()
-        # self.root.update()
+        # Force one frame so data appears immediately
+        self._update_frame(0)
+        if self.canvas:
+            self.canvas.draw_idle()
 
-        self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False)
+        self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False, cache_frame_data=False,)
 
     def _stop_animation(self) -> None:
         if self.animation:
