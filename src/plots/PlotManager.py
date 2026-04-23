@@ -48,7 +48,6 @@ class PlotManager:
         if event.button == 1:
             if event.inaxes == ax:
                 self.selection_start = event.xdata
-                print(f"Selection started at x = {self.selection_start}")
                 if self.selection_rect:
                     self.selection_rect.remove()
                     self.selection_rect = None
@@ -59,7 +58,6 @@ class PlotManager:
     def on_release(self, event, ax, time, samples):
         if event.inaxes == ax and self.selection_start and event.button == 1:
             self.selection_end = event.xdata
-            print(f"Selection ended at x = {self.selection_end}")
 
             # Get full height of the plot
             y_min, y_max = ax.get_ylim()

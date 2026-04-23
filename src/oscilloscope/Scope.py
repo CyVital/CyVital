@@ -113,9 +113,7 @@ class Scope:
         mode, nak = self.i2c.read(self.MAX_ADDR_8BIT, 1)
         if(nak == -1):
             raise IOError("I2C NACK at index -1")
-        
-        print(f"I2C NACK at index {nak}")
-        print(f"MODE_CONFIG readback: 0x{mode[0]:02X}")
+            
 
         # Configure sensor & FIFO
         cfg = [
