@@ -44,7 +44,7 @@ DEFAULT_SENSORS = [
         key="pulse",
         title="Pulse Oximeter",
         subtitle="Blood Oxygen",
-        primary_label="SpOâ‚‚",
+        primary_label="SpO2",
         secondary_label="Pulse",
         module_factory=PulseOxSensorModule,
     ),
@@ -65,4 +65,3 @@ DEFAULT_SENSORS = [
         module_factory=RespiratorySensorModule,
     ),
 ]
-

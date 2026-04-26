@@ -35,6 +35,14 @@ class SensorModule:
         # Fetch new data and describe what should output
         return SensorUpdate()
 
+    def shift_history_window(self, direction: int) -> bool:
+        # Move through stored plot history when a sensor supports review.
+        return False
+
+    def pause(self) -> None:
+        # Let sensors render a paused/full-history view if they support one.
+        pass
+
     def save_data(self) -> Optional[str]:
         # Send collected data when export button is pressed
         raise NotImplementedError("Export not implemented for this module.")

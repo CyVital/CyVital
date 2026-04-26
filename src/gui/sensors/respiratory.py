@@ -62,11 +62,11 @@ class RespiratorySensorModule(SensorModule):
 
             if latest_rate is not None:
                 primary = f"{latest_rate:.1f} BrPM"
-                secondary = f"{(effort_delta or 0.0):.3f} V Î”"
+                secondary = f"{(effort_delta or 0.0):.3f} V delta"
                 log = f"Breaths detected in last {rate_window}s: {window_count}"
             else:
                 primary = "--"
-                secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V Î”"
+                secondary = "--" if effort_delta is None else f"{effort_delta:.3f} V delta"
                 log = "Tracking respiratory baseline..."
         except (IOError, OSError) as exc:
             primary = "--"
@@ -97,4 +97,3 @@ class RespiratorySensorModule(SensorModule):
 
     def cleanup(self) -> None:
         self.plot._close_plot()
-
