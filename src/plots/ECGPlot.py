@@ -38,7 +38,7 @@ class ECGPlot(PlotManager):
         self.peaks_plot, = self.ax1.plot([], [], 'bo', label='Peaks')
         self.ax1.set_ylabel('Voltage (V)')
         self.ax1.set_xlabel('Sample Index')
-        self.ax1.set_ylim(-0.15, 0.15)
+        self.ax1.set_ylim(-0.15, 3.3)
         self.ax1.grid(True)
         self.ax1.legend()
 

@@ -438,7 +438,10 @@ class CyVitalApp:
         self.current_sensor_key = key
         self.current_module = definition.module_factory()
 
-        self.current_module.setup_scope(self.scope)
+        try:
+            self.current_module.setup_scope(self.scope)
+        except TypeError:
+            self.current_module.supports_streaming = False
 
         for nav_key, nav_item in self.nav_items.items():
             nav_item.set_active(nav_key == key)
@@ -518,10 +521,25 @@ class CyVitalApp:
         if not figure:
             return
         
-        # self.root.update_idletasks()
-        # self.root.update()
+        if self.canvas:
+            # Flush pending geometry/layout work
+            self.root.update_idletasks()
+            # Force an initial render so the canvas is fully realized
+            self.canvas.draw()
+            # Give focus to the canvas widget (helps on some platforms/backends)
+            try:
+                self.canvas.get_tk_widget().focus_set()
+            except Exception:
+                print("exception")
+        else:
+            print("canvas failure")
+        
+        # Force one frame so data appears immediately
+        self._update_frame(0)
+        if self.canvas:
+            self.canvas.draw_idle()
 
-        self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False)
+        self.animation = FuncAnimation(figure, self._update_frame, interval=50, blit=False, cache_frame_data=False,)
 
     def _stop_animation(self) -> None:
         if self.animation:
@@ -563,7 +581,7 @@ class CyVitalApp:
                 self._start_animation()
             if not self.animation:
                 return
-            self.animation.event_source.start()
+            self.root.after(0, self.animation.event_source.start) #to fix tap play?
             self.animation_running = True
             self.toggle_btn.configure(text="Pause")
             self.status_indicator.configure(fg=COLORS["status_active"])

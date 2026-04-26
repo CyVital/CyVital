@@ -31,6 +31,7 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+!CyVital.spec
 
 # Installer logs
 pip-log.txt
@@ -175,6 +176,8 @@ cython_debug/
 
 # Ignore .ini files
 *.ini
+# Keep pytest configuration
+!pytest.ini
 
 # Include all __init__.py files (ensure Python packages are tracked)
 !__init__.py
