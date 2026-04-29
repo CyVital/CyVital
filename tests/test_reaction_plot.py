@@ -45,9 +45,9 @@ class TestSetup:
         rp = ReactionPlot()
         assert rp.line_signal is not None
 
-    def test_cue_text_starts_empty(self):
+    def test_cue_text_starts_with_waiting_message(self):
         rp = ReactionPlot()
-        assert rp.cue_text.get_text() == ""
+        assert rp.cue_text.get_text() == "Waiting for LED cue..."
 
     def test_initial_buffers_empty(self):
         rp = ReactionPlot()
@@ -81,10 +81,10 @@ class TestUpdatePlotNoCue:
     def teardown_method(self):
         self._time_patcher.stop()
 
-    def test_returns_two_artists(self):
+    def test_returns_signal_and_cue_artists(self):
         t, s = _t_s()
         result = self.rp.update_plot(t, s)
-        assert len(result) == 2
+        assert len(result) == 4
 
     def test_full_time_extended(self):
         t, s = _t_s()
@@ -153,7 +153,7 @@ class TestCueLogic:
                 rp.update_plot(t, s)
 
         assert rp.cue_active is True
-        assert rp.cue_text.get_text() == "GO!"
+        assert rp.cue_text.get_text() == "LED ON! Press the button now"
 
     def test_reaction_recorded_when_button_pressed_during_cue(self):
         rp = ReactionPlot()

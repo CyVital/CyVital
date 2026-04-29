@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import os
 import sys
+import types
 from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # 1. Force non-interactive backend BEFORE matplotlib is imported anywhere.
 # ---------------------------------------------------------------------------
-os.environ["MPLBACKEND"] = "Agg"
+os.environ["MPLBACKEND"] = "Agg" #no GUI opening
 
 # ---------------------------------------------------------------------------
 # 2. Extend sys.path so both styles of imports work:
@@ -36,6 +37,9 @@ for _path in (_SRC_PLOTS, _SRC_ROOT):
 # 3. Stub out hardware-only dependency used by EMGPlot.
 # ---------------------------------------------------------------------------
 sys.modules.setdefault("dwfpy", MagicMock())
+protocols_stub = types.ModuleType("dwfpy.protocols")
+protocols_stub.Protocols = MagicMock()
+sys.modules.setdefault("dwfpy.protocols", protocols_stub)
 
 # ---------------------------------------------------------------------------
 # 4. Now it's safe to import matplotlib and pytest helpers.
@@ -51,8 +55,7 @@ import pytest  # noqa: E402
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-class MockEvent:
-    """Minimal stand-in for a Matplotlib mouse/scroll event."""
+class MockEvent: #Fake scrolling or mouse interaction event
 
     def __init__(
         self,
