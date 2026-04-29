@@ -30,7 +30,7 @@ class EMGPlot(PlotManager):
 
         self.line_raw, = self.ax_raw.plot([], [], lw=2)
         self.ax_raw.set_ylabel("Raw EMG (V)")
-        self.ax_raw.set_ylim(0, 0.1)
+        self.ax_raw.set_ylim(0, 4)
         self.ax_raw.set_xlabel("Time (s)")
         self.ax_raw.grid(True)
 
