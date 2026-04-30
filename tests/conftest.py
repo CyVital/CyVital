@@ -33,9 +33,11 @@ for _path in (_SRC_PLOTS, _SRC_ROOT):
         sys.path.insert(0, _path)
 
 # ---------------------------------------------------------------------------
-# 3. Stub out hardware-only dependency used by EMGPlot.
+# 3. Stub out hardware-only dependencies (dwfpy and its sub-modules).
 # ---------------------------------------------------------------------------
-sys.modules.setdefault("dwfpy", MagicMock())
+_dwfpy_mock = MagicMock()
+sys.modules.setdefault("dwfpy", _dwfpy_mock)
+sys.modules.setdefault("dwfpy.protocols", _dwfpy_mock.protocols)
 
 # ---------------------------------------------------------------------------
 # 4. Now it's safe to import matplotlib and pytest helpers.
