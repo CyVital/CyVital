@@ -33,7 +33,7 @@ for _path in (_SRC_PLOTS, _SRC_ROOT):
         sys.path.insert(0, _path)
 
 # ---------------------------------------------------------------------------
-# 3. Stub out hardware-only dependencies (dwfpy and its sub-modules).
+# 3. Stub out hardware-only dependencies (dwfpy and its submodules).
 # ---------------------------------------------------------------------------
 _dwfpy_mock = MagicMock()
 sys.modules.setdefault("dwfpy", _dwfpy_mock)

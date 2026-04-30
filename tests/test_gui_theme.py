@@ -97,6 +97,6 @@ class TestFontFamily:
     def test_font_family_wraps_base(self):
         assert BASE_FONT_FAMILY in FONT_FAMILY
 
-    def test_font_family_has_braces(self):
+    def test_font_family_has_curly_brackets(self):
         assert FONT_FAMILY.startswith("{")
         assert FONT_FAMILY.endswith("}")
