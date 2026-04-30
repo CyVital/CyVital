@@ -31,7 +31,6 @@ SRC_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 if SRC_ROOT not in sys.path:
     sys.path.insert(0, SRC_ROOT)
 
-from oscilloscope.FakeScope import FakeScope
 from oscilloscope.Scope import Scope
 try:
     from .models import SensorUpdate
@@ -609,23 +608,8 @@ class CyVitalApp:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
-    parser = argparse.ArgumentParser(description="CyVital GUI")
-    parser.add_argument(
-        "--fake-scope",
-        action="store_true",
-        help="Run the app with synthetic oscilloscope data instead of hardware.",
-    )
-    parser.add_argument(
-        "--fake-seed",
-        type=int,
-        help="Optional random seed for the fake scope to get repeatable traces.",
-    )
-    args = parser.parse_args(argv)
 
-    if args.fake_scope:
-        scope = FakeScope(rng_seed=args.fake_seed)
-    else:
-        scope = Scope()
+    scope = Scope()
 
     root = tk.Tk()
     app = CyVitalApp(root, scope)
