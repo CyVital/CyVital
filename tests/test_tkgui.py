@@ -548,25 +548,23 @@ class TestCyVitalAppNoSensors:
 # ---------------------------------------------------------------------------
 
 class TestMain:
-    def test_main_fake_scope_does_not_raise(self):
-        with patch("gui.tkGui.DEFAULT_SENSORS", []):
-            main(["--fake-scope"])
-
-    def test_main_fake_scope_with_seed(self):
-        with patch("gui.tkGui.DEFAULT_SENSORS", []):
-            main(["--fake-scope", "--fake-seed", "42"])
-
-    def test_main_default_scope_uses_scope_class(self):
+    def test_main_creates_scope_and_app(self):
         with patch("gui.tkGui.DEFAULT_SENSORS", []):
             with patch("gui.tkGui.Scope") as mock_cls:
-                main([])
+                main()
         mock_cls.assert_called_once()
+
+    def test_main_does_not_raise(self):
+        with patch("gui.tkGui.DEFAULT_SENSORS", []):
+            with patch("gui.tkGui.Scope"):
+                main()
 
     def test_main_keyboard_interrupt_is_handled(self):
         _tk_mock.Tk.return_value.mainloop.side_effect = KeyboardInterrupt()
         try:
             with patch("gui.tkGui.DEFAULT_SENSORS", []):
-                main(["--fake-scope"])
+                with patch("gui.tkGui.Scope"):
+                    main()
         finally:
             _tk_mock.Tk.return_value.mainloop.side_effect = None
 
@@ -579,7 +577,8 @@ class TestMain:
         _tk_mock.Tk.return_value.protocol.side_effect = _capture
         try:
             with patch("gui.tkGui.DEFAULT_SENSORS", []):
-                main(["--fake-scope"])
+                with patch("gui.tkGui.Scope"):
+                    main()
         finally:
             _tk_mock.Tk.return_value.protocol.side_effect = None
 
@@ -594,7 +593,8 @@ class TestMain:
         _tk_mock.Tk.return_value.protocol.side_effect = _capture
         try:
             with patch("gui.tkGui.DEFAULT_SENSORS", []):
-                main(["--fake-scope"])
+                with patch("gui.tkGui.Scope"):
+                    main()
         finally:
             _tk_mock.Tk.return_value.protocol.side_effect = None
 
