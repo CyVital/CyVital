@@ -4,17 +4,17 @@ This document provides a high-level overview of the architecture of the CyVital 
 
 ## Layers
 
-### 1. GUI
+### 1. GUI - /src/gui
 The Graphical User Interface (GUI) is the entry point for users to interact with the system. It provides visualizations and controls for operating the sensor modules and viewing data plots.
 `src/gui/tkGui.py` creates a plain `tk.Tk` window, embeds single Matplotlib w/ `FigureCanvasTkAgg`, and wires a `FuncAnimation` loop to update the reaction-time plot making it "live"
 
-### 2. Sensor Modules
+### 2. Sensor Modules - /src/gui/sensors
 The sensor modules are responsible for collecting data from various sensors. Each module can be added or removed to extend functionality.
 
-### 3. Plots
+### 3. Plots - /src/plots
 Plots visualize data collected from sensors, allowing users to analyze trends and correlations in real time.
 
-### 4. Scope
+### 4. Scope - /src/oscilloscope
 Scope defines the oscilloscope in use to collect the data.
 
 ## Key Data Flow
@@ -27,3 +27,6 @@ This component defines the characteristics of each sensor module, including comm
 
 ## CyVital.spec
 This file is used to compile the PyInstaller executables/apps, using the icons in the /icons folder. Just type `python PyInstaller CyVital.spec` to run.
+
+## /icons
+This folder holds the icons used in genderating the executables
